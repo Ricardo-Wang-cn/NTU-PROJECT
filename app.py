@@ -1,0 +1,234 @@
+import streamlit as st
+import pandas as pd
+import re
+import altair as alt
+from PIL import Image
+import google.generativeai as genai
+
+# ================= 1. UI 配置 =================
+st.set_page_config(
+    page_title="Mistake-Driven Learning (Auto-Fix)", 
+    page_icon="🎓", 
+    layout="wide"
+)
+
+st.markdown("""
+<style>
+    .stApp { background-color: #f8f9fa; }
+    div[data-testid="metric-container"] {
+        background-color: white;
+        border: 1px solid #e0e0e0;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .element-container { margin-bottom: 0.5rem; }
+    section[data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-right: 1px solid #e5e7eb;
+    }
+    h1, h2, h3 { font-family: 'Inter', sans-serif; color: #2d3748; }
+</style>
+""", unsafe_allow_html=True)
+
+# ================= 2. 核心：增强版 Google API 调用 (带自动修复) =================
+
+def call_gemini_ocr(api_key, image_file):
+    """
+    智能调用 Google Gemini。
+    如果 1.5 Flash 报错，自动尝试其他模型。
+    """
+    genai.configure(api_key=api_key)
+    
+    # 定义尝试列表：优先最新版，其次稳定版
+    models_to_try = [
+        'gemini-1.5-flash',          # 首选：最新、最快、免费
+        'gemini-1.5-flash-latest',   # 备选命名
+        'gemini-1.5-flash-001',      # 特定版本号
+        'gemini-pro-vision'          # 兜底：上一代模型（非常稳定）
+    ]
+    
+    img = Image.open(image_file)
+    prompt = "Identify all math equations in this image. Return ONLY the equations, one per line. Format: 'number operator number = number'. Convert x/X to *. Convert ÷ to /."
+
+    last_error = ""
+
+    # 循环尝试模型，直到成功
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content([prompt, img])
+            return response.text  # 如果成功，直接返回结果
+        except Exception as e:
+            last_error = str(e)
+            continue # 如果失败，尝试下一个模型
+            
+    # 如果所有模型都失败
+    return f"API Error: All models failed. Last error: {last_error}"
+
+# ================= 3. 数据处理逻辑 =================
+if 'global_db' not in st.session_state:
+    st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp'])
+
+def parse_and_solve(text_block):
+    text_block = text_block.replace('÷', '/').replace('x', '*').replace('X', '*')
+    text_block = text_block.replace('\n', ' ').replace(',', ' ')
+    
+    pattern = r'(\d+\.?\d*)\s*([\+\-\*\/])\s*(\d+\.?\d*)\s*=\s*(\d+\.?\d*)'
+    matches = re.findall(pattern, text_block)
+    
+    results = []
+    timestamp = pd.Timestamp.now().strftime("%H:%M")
+    
+    for m in matches:
+        n1, op_char, n2, u_ans = float(m[0]), m[1], float(m[2]), float(m[3])
+        correct = 0
+        err_type = "Unknown"
+        
+        if op_char == '+': correct, err_type = n1 + n2, "Addition Error"
+        elif op_char == '-': correct, err_type = n1 - n2, "Subtraction Error"
+        elif op_char == '*': correct, err_type = n1 * n2, "Multiplication Error"
+        elif op_char == '/': 
+            if n2 == 0: continue
+            correct, err_type = n1 / n2, "Division Error"
+            
+        is_right = abs(correct - u_ans) < 0.01
+        display_op = op_char.replace('*', '×').replace('/', '÷')
+        
+        results.append({
+            'Equation': f"{int(n1)} {display_op} {int(n2)}",
+            'User Answer': int(u_ans) if u_ans.is_integer() else u_ans,
+            'Correct Answer': int(correct) if correct.is_integer() else correct,
+            'Status': "Correct" if is_right else "Incorrect",
+            'Error Type': "None" if is_right else err_type,
+            'Timestamp': timestamp
+        })
+    return results
+
+def get_smart_feedback(error_type):
+    content = {
+        "Addition Error": ("🧠 Concept: Carrying", "Check if the sum exceeds 10. Don't forget to carry over!"),
+        "Subtraction Error": ("🧠 Concept: Borrowing", "If top < bottom, borrow from the left neighbor."),
+        "Multiplication Error": ("🧠 Concept: Times Tables", "Review tables 6, 7, 8. Check symbol confusion (x vs +)."),
+        "Division Error": ("🧠 Concept: Remainder", "The remainder must be smaller than the divisor.")
+    }
+    return content.get(error_type, ("🎉 Review", "Check calculation steps."))
+
+# ================= 4. 侧边栏 =================
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/2997/2997235.png", width=60)
+    page = st.radio("Menu", ["Home (Scan)", "My Dashboard"], label_visibility="collapsed")
+    st.markdown("---")
+    
+    st.subheader("🔑 Google Gemini Key")
+    api_key_input = st.text_input("Enter API Key", type="password", help="Get free key from Google AI Studio")
+    
+    if api_key_input:
+        st.success("Key Loaded!")
+    else:
+        st.warning("⚠️ Enter Key to start")
+
+    st.markdown("---")
+    if st.button("Reset Data", type="secondary"):
+        st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp'])
+        st.rerun()
+
+# ================= 5. 页面逻辑 =================
+
+# --- PAGE 1: 扫描 ---
+if page == "Home (Scan)":
+    st.title("📸 AI Handwritten Scan")
+    st.caption("Auto-Detect Model: Gemini 1.5 Flash / Pro Vision")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        uploaded_file = st.file_uploader("Upload Image", type=['png', 'jpg', 'jpeg'])
+        
+        if uploaded_file:
+            st.image(uploaded_file, caption="Source", width=300)
+            
+            if api_key_input:
+                if st.button("⚡ Start Recognition", type="primary"):
+                    with st.spinner("AI is analyzing (Trying multiple models)..."):
+                        ai_result = call_gemini_ocr(api_key_input, uploaded_file)
+                        
+                        if "API Error" in ai_result:
+                            st.error(ai_result)
+                            st.info("Tip: Try running 'pip install -U google-generativeai' in terminal.")
+                        else:
+                            st.session_state['ocr_result'] = ai_result
+                            st.success("Done!")
+            else:
+                st.info("Paste your Google API Key in the sidebar.")
+
+    with col2:
+        st.markdown("### 📝 Result")
+        current_text = st.session_state.get('ocr_result', "")
+        
+        user_input = st.text_area(
+            "Recognized Equations", 
+            value=current_text, 
+            height=200
+        )
+        
+        if st.button("Confirm & Save ➡️", use_container_width=True):
+            if user_input:
+                new_data = parse_and_solve(user_input)
+                if new_data:
+                    new_df = pd.DataFrame(new_data)
+                    st.session_state['global_db'] = pd.concat([st.session_state['global_db'], new_df], ignore_index=True)
+                    st.success(f"Saved {len(new_data)} equations!")
+                else:
+                    st.error("No valid math found.")
+
+# --- PAGE 2: 仪表盘 ---
+elif page == "My Dashboard":
+    st.title("📊 Learning Dashboard")
+    df = st.session_state['global_db']
+    
+    if not df.empty:
+        wrong_df = df[df['Status'] == "Incorrect"]
+        
+        with st.container():
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total", len(df))
+            c2.metric("Mistakes", len(wrong_df), delta_color="inverse")
+            acc = (len(df)-len(wrong_df))/len(df)*100 if len(df) > 0 else 0
+            c3.metric("Accuracy", f"{acc:.0f}%")
+            top_issue = wrong_df['Error Type'].mode()[0] if not wrong_df.empty else "None"
+            c4.metric("Weak Spot", top_issue, delta="-Priority")
+        
+        if not wrong_df.empty:
+            st.markdown("---")
+            st.subheader("📉 Analysis")
+            chart_data = wrong_df['Error Type'].value_counts().reset_index()
+            chart_data.columns = ['Type', 'Count']
+            chart = alt.Chart(chart_data).mark_bar(color='#FF6B6B').encode(
+                x='Count', y=alt.Y('Type', sort='-x')
+            ).properties(height=150)
+            st.altair_chart(chart, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("📝 Mistake Log")
+        
+        display_df = wrong_df
+        if display_df.empty:
+             st.success("No mistakes found!")
+        
+        for index, row in display_df.iterrows():
+            with st.container():
+                c_icon, c_eq, c_ans = st.columns([0.5, 2, 2])
+                with c_icon: st.error("❌")
+                with c_eq: st.markdown(f"**{row['Equation']}**")
+                with c_ans: 
+                    st.write(f"Yours: {row['User Answer']}") 
+                    st.caption(f"Correct: {row['Correct Answer']}")
+                
+                title, advice = get_smart_feedback(row['Error Type'])
+                with st.expander("🤖 AI Tutor"):
+                    st.info(f"**{title}**\n\n{advice}")
+            st.markdown("<hr style='margin: 5px 0; opacity: 0.2;'>", unsafe_allow_html=True)
+            
+    else:
+        st.info("No data available.")
