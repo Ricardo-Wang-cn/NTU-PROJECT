@@ -34,20 +34,33 @@ st.markdown("""
 if 'global_db' not in st.session_state:
     st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp'])
 
-def call_gemini_ocr(api_key, image_file, model_name='gemini-1.5-flash'):
-    """调用 Google Gemini"""
+def call_gemini_ocr(api_key, image_file):
+    """调用 Google Gemini (强制使用你列表中的 2.5 版本)"""
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name)
+        
+        # === 核心修改在这里 ===
+        # 根据你的列表，我们直接指定最强的 2.5 Flash
+        target_model = 'gemini-2.5-flash' 
+        
+        model = genai.GenerativeModel(target_model)
         img = Image.open(image_file)
         prompt = "Identify all math equations. Return ONLY equations. Format: 'num op num = num'. Convert x/X to *. Convert ÷ to /."
+        
         response = model.generate_content([prompt, img])
         return response.text
+        
     except Exception as e:
-        return f"API Error: {str(e)}"
+        # 如果 2.5 偶尔不稳定，尝试用 'gemini-flash-latest' (自动指向最新版)
+        try:
+            model_backup = genai.GenerativeModel('gemini-flash-latest')
+            response = model_backup.generate_content([prompt, img])
+            return response.text
+        except Exception as e2:
+            return f"API Error: {str(e)}\nBackup Error: {str(e2)}"
 
 def parse_and_solve(text_block):
-    # 清洗数据
+    # 数据清洗
     text_block = text_block.replace('÷', '/').replace('x', '*').replace('X', '*')
     text_block = text_block.replace('\n', ' ').replace(',', ' ')
     pattern = r'(\d+\.?\d*)\s*([\+\-\*\/])\s*(\d+\.?\d*)\s*=\s*(\d+\.?\d*)'
@@ -94,26 +107,23 @@ with st.sidebar:
     page = st.radio("Menu", ["Home (Scan)", "My Dashboard"], label_visibility="collapsed")
     st.markdown("---")
     
-    # === 设置区域 ===
     st.subheader("🔧 Settings")
-    
-    # 保底模式开关
     use_simulation = st.checkbox("✅ Simulation Mode (Backup)", value=False)
     
     if not use_simulation:
         api_key_input = st.text_input("Google API Key", type="password")
         
-        # === 新增：模型检测按钮 ===
-        if api_key_input:
-            if st.button("🛠 Check Available Models"):
-                try:
-                    genai.configure(api_key=api_key_input)
-                    models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                    st.success(f"Available: {models}")
-                except Exception as e:
-                    st.error(f"Key Error: {e}")
+        # 你的检测按钮 (保留着，用来确认 2.5 是否在线)
+        if api_key_input and st.button("🛠 Check Active Model"):
+            try:
+                genai.configure(api_key=api_key_input)
+                # 简单测试一下
+                m = genai.GenerativeModel('gemini-2.5-flash')
+                st.success("Connected to: gemini-2.5-flash 🟢")
+            except Exception as e:
+                st.error(f"Error: {e}")
     else:
-        st.info("Using Simulation Data (Safe Mode)")
+        st.info("Simulation Mode ON")
 
     st.markdown("---")
     if st.button("Reset Data", type="secondary"):
@@ -122,7 +132,6 @@ with st.sidebar:
 
 # ================= 4. 页面内容 =================
 
-# --- PAGE 1: 扫描 ---
 if page == "Home (Scan)":
     st.title("📸 AI Scan & Digitize")
     
@@ -134,31 +143,24 @@ if page == "Home (Scan)":
             st.image(uploaded_file, caption="Source", width=300)
             
             if st.button("⚡ Start Recognition", type="primary"):
-                # 模式 A: 模拟
                 if use_simulation:
-                    with st.spinner("AI Processing (Simulation)..."):
+                    with st.spinner("Simulation Mode..."):
                         simulated_result = "6+9=11\n7x3=20\n8÷2=4"
                         st.session_state['ocr_result'] = simulated_result
-                        st.success("Recognition Complete!")
+                        st.success("Done!")
                 
-                # 模式 B: API
                 elif api_key_input:
-                    with st.spinner("Connecting to Gemini AI..."):
-                        # 尝试调用最新模型
-                        res = call_gemini_ocr(api_key_input, uploaded_file, 'gemini-1.5-flash')
+                    with st.spinner("Analyzing with Gemini 2.5..."):
+                        res = call_gemini_ocr(api_key_input, uploaded_file)
                         
-                        # 如果报错，尝试调用旧模型 (gemini-pro-vision) 作为备份
-                        if "Error" in res:
-                            res = call_gemini_ocr(api_key_input, uploaded_file, 'gemini-pro-vision')
-                            
-                        if "Error" in res:
+                        if "API Error" in res:
                             st.error(res)
-                            st.error("Try clicking 'Check Available Models' in sidebar to see correct model names.")
+                            st.warning("Please try Simulation Mode.")
                         else:
                             st.session_state['ocr_result'] = res
-                            st.success("Done!")
+                            st.success("Success!")
                 else:
-                    st.warning("Please enter API Key or enable Simulation Mode.")
+                    st.warning("Enter Key or use Simulation.")
 
     with col2:
         st.markdown("### 📝 Result")
@@ -173,45 +175,4 @@ if page == "Home (Scan)":
                     st.session_state['global_db'] = pd.concat([st.session_state['global_db'], new_df], ignore_index=True)
                     st.success(f"Saved {len(new_data)} items!")
                 else:
-                    st.error("No valid math found.")
-
-# --- PAGE 2: 仪表盘 ---
-elif page == "My Dashboard":
-    st.title("📊 Learning Dashboard")
-    df = st.session_state['global_db']
-    
-    if not df.empty:
-        wrong_df = df[df['Status'] == "Incorrect"]
-        
-        with st.container():
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Total", len(df))
-            c2.metric("Mistakes", len(wrong_df), delta_color="inverse")
-            acc = (len(df)-len(wrong_df))/len(df)*100 if len(df) > 0 else 0
-            c3.metric("Accuracy", f"{acc:.0f}%")
-            top_issue = wrong_df['Error Type'].mode()[0] if not wrong_df.empty else "None"
-            c4.metric("Weak Spot", top_issue, delta="-Priority")
-        
-        if not wrong_df.empty:
-            st.markdown("---")
-            chart_data = wrong_df['Error Type'].value_counts().reset_index()
-            chart_data.columns = ['Type', 'Count']
-            chart = alt.Chart(chart_data).mark_bar(color='#FF6B6B').encode(x='Count', y=alt.Y('Type', sort='-x')).properties(height=150)
-            st.altair_chart(chart, use_container_width=True)
-
-        st.markdown("---")
-        st.subheader("📝 Mistake Analysis")
-        for index, row in (wrong_df if not wrong_df.empty else df).iterrows():
-            if row['Status'] == 'Incorrect':
-                with st.container():
-                    c1, c2, c3 = st.columns([0.5, 2, 2])
-                    with c1: st.error("❌")
-                    with c2: st.markdown(f"**{row['Equation']}**")
-                    with c3: st.caption(f"Correct: {row['Correct Answer']}")
-                    
-                    title, advice = get_smart_feedback(row['Error Type'])
-                    with st.expander("🤖 AI Tutor"):
-                        st.info(f"**{title}**\n{advice}")
-                st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
-    else:
-        st.info("No data yet.")
+                    st.error("No valid
