@@ -34,12 +34,11 @@ st.markdown("""
 if 'global_db' not in st.session_state:
     st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp'])
 
-def call_gemini_ocr(api_key, image_file):
-    """调用 Google Gemini (强制指定最新模型)"""
+def call_gemini_ocr(api_key, image_file, model_name='gemini-1.5-flash'):
+    """调用 Google Gemini"""
     try:
         genai.configure(api_key=api_key)
-        # 只尝试最新的 Flash 模型，配合 requirements.txt 升级
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel(model_name)
         img = Image.open(image_file)
         prompt = "Identify all math equations. Return ONLY equations. Format: 'num op num = num'. Convert x/X to *. Convert ÷ to /."
         response = model.generate_content([prompt, img])
@@ -95,15 +94,26 @@ with st.sidebar:
     page = st.radio("Menu", ["Home (Scan)", "My Dashboard"], label_visibility="collapsed")
     st.markdown("---")
     
-    # === 保底开关 (最重要的功能) ===
+    # === 设置区域 ===
     st.subheader("🔧 Settings")
-    use_simulation = st.checkbox("✅ Enable Simulation Mode", value=False, help="Use this if API fails during demo.")
+    
+    # 保底模式开关
+    use_simulation = st.checkbox("✅ Simulation Mode (Backup)", value=False)
     
     if not use_simulation:
         api_key_input = st.text_input("Google API Key", type="password")
-        if api_key_input: st.success("Key Loaded")
+        
+        # === 新增：模型检测按钮 ===
+        if api_key_input:
+            if st.button("🛠 Check Available Models"):
+                try:
+                    genai.configure(api_key=api_key_input)
+                    models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    st.success(f"Available: {models}")
+                except Exception as e:
+                    st.error(f"Key Error: {e}")
     else:
-        st.info("Simulation Mode ON: No API needed.")
+        st.info("Using Simulation Data (Safe Mode)")
 
     st.markdown("---")
     if st.button("Reset Data", type="secondary"):
@@ -123,23 +133,27 @@ if page == "Home (Scan)":
         if uploaded_file:
             st.image(uploaded_file, caption="Source", width=300)
             
-            # 按钮逻辑
             if st.button("⚡ Start Recognition", type="primary"):
-                # 情况 A: 开启了模拟模式 (保底)
+                # 模式 A: 模拟
                 if use_simulation:
                     with st.spinner("AI Processing (Simulation)..."):
-                        # 这里直接填入你那张图片的准确数据
                         simulated_result = "6+9=11\n7x3=20\n8÷2=4"
                         st.session_state['ocr_result'] = simulated_result
                         st.success("Recognition Complete!")
                 
-                # 情况 B: 使用真实 API
+                # 模式 B: API
                 elif api_key_input:
                     with st.spinner("Connecting to Gemini AI..."):
-                        res = call_gemini_ocr(api_key_input, uploaded_file)
-                        if "API Error" in res:
+                        # 尝试调用最新模型
+                        res = call_gemini_ocr(api_key_input, uploaded_file, 'gemini-1.5-flash')
+                        
+                        # 如果报错，尝试调用旧模型 (gemini-pro-vision) 作为备份
+                        if "Error" in res:
+                            res = call_gemini_ocr(api_key_input, uploaded_file, 'gemini-pro-vision')
+                            
+                        if "Error" in res:
                             st.error(res)
-                            st.error("Please ensure requirements.txt has 'google-generativeai>=0.8.3'")
+                            st.error("Try clicking 'Check Available Models' in sidebar to see correct model names.")
                         else:
                             st.session_state['ocr_result'] = res
                             st.success("Done!")
