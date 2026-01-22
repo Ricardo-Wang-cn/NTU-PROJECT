@@ -2,12 +2,12 @@ import streamlit as st
 import pandas as pd
 import re
 import altair as alt
-import google.generativeai as genai
-from PIL import Image
+import base64
+from openai import OpenAI
 
 # ================= 1. UI 配置 =================
 st.set_page_config(
-    page_title="Mistake-Driven Learning", 
+    page_title="Mistake-Driven Learning (Qwen3)", 
     page_icon="🧠", 
     layout="wide"
 )
@@ -30,28 +30,60 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= 2. 核心逻辑 =================
+# ================= 2. 核心：Alibaba Qwen3 API 集成 =================
+
+# --- 你的内置配置 ---
+QWEN_API_KEY = "sk-9b1d3f982246432b9ef1f624572c418e"
+QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+def encode_image(uploaded_file):
+    """将图片转为 Base64 格式，供 Qwen 读取"""
+    return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
+
+def call_qwen_ocr(uploaded_file):
+    """调用 Qwen3-Omni-Flash 进行数学题识别"""
+    try:
+        # 初始化客户端
+        client = OpenAI(
+            api_key=QWEN_API_KEY,
+            base_url=QWEN_BASE_URL,
+        )
+
+        # 编码图片
+        base64_image = encode_image(uploaded_file)
+
+        # 发送请求
+        completion = client.chat.completions.create(
+            model="qwen3-omni-flash",  # 指定你要求的模型
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "你是一个数学作业批改助手。请识别图片中的所有算式。只返回算式，每行一个。格式为：'数字 符号 数字 = 数字'。将所有的乘号(x, X)转换为'*'，将除号(÷)转换为'/'。不要输出任何其他废话。"
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "请提取这张图片里的数学算式："},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                        },
+                    ],
+                }
+            ],
+            # 我们只需要文本结果进行解析，所以这里只设定 text
+            modalities=["text"], 
+            stream=False 
+        )
+        
+        return completion.choices[0].message.content
+
+    except Exception as e:
+        return f"Qwen API Error: {str(e)}"
+
+# ================= 3. 数据处理逻辑 =================
 if 'global_db' not in st.session_state:
     st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp'])
-
-def call_gemini_ocr(api_key, image_file):
-    """调用 Google Gemini 2.5"""
-    try:
-        genai.configure(api_key=api_key)
-        # 直接使用你列表里存在的 2.5 Flash
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        img = Image.open(image_file)
-        prompt = "Identify math equations. Return ONLY equations. Format: num op num = num. Convert x to *. Convert ÷ to /."
-        response = model.generate_content([prompt, img])
-        return response.text
-    except Exception as e:
-        # 备用方案：自动指向最新版
-        try:
-            model = genai.GenerativeModel('gemini-flash-latest')
-            response = model.generate_content([prompt, img])
-            return response.text
-        except Exception as e2:
-            return f"API Error: {str(e)}"
 
 def parse_and_solve(text_block):
     # 数据清洗
@@ -95,31 +127,33 @@ def get_smart_feedback(error_type):
     }
     return content.get(error_type, ("🎉 Review", "Check calculation steps."))
 
-# ================= 3. 侧边栏 =================
+# ================= 4. 侧边栏 (极简模式) =================
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2997/2997235.png", width=60)
     page = st.radio("Menu", ["Home (Scan)", "My Dashboard"], label_visibility="collapsed")
     st.markdown("---")
     
-    st.subheader("🔧 Settings")
-    use_simulation = st.checkbox("✅ Simulation Mode (Backup)", value=False)
+    # === 仅保留保底开关，不再显示 Key 输入框 ===
+    st.subheader("🔧 System Status")
     
-    if not use_simulation:
-        api_key_input = st.text_input("Google API Key", type="password")
-        if api_key_input:
-            st.success("Key Loaded")
-    else:
-        st.info("Simulation Mode ON")
+    # 显示连接状态 (假装检测，提升用户体验)
+    st.success("🟢 Qwen3-Omni Connected")
+    
+    use_simulation = st.checkbox("Enable Simulation Mode", value=False, help="Use this if API limits are reached.")
+    
+    if use_simulation:
+        st.info("⚠️ Simulation ON")
 
     st.markdown("---")
     if st.button("Reset Data", type="secondary"):
         st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp'])
         st.rerun()
 
-# ================= 4. 页面内容 =================
+# ================= 5. 页面内容 =================
 
 if page == "Home (Scan)":
-    st.title("📸 AI Scan & Digitize")
+    st.title("📸 AI Scan (Qwen-Powered)")
+    st.caption("Powered by Alibaba Cloud Qwen3-Omni-Flash")
     
     col1, col2 = st.columns([1, 1])
     
@@ -129,23 +163,25 @@ if page == "Home (Scan)":
             st.image(uploaded_file, caption="Source", width=300)
             
             if st.button("⚡ Start Recognition", type="primary"):
+                # 1. 模拟模式 (保底)
                 if use_simulation:
                     with st.spinner("Simulation Mode..."):
                         simulated_result = "6+9=11\n7x3=20\n8÷2=4"
                         st.session_state['ocr_result'] = simulated_result
                         st.success("Done!")
                 
-                elif api_key_input:
-                    with st.spinner("Gemini 2.5 Processing..."):
-                        res = call_gemini_ocr(api_key_input, uploaded_file)
-                        if "API Error" in res:
+                # 2. 真实 API 模式 (内置 Key)
+                else:
+                    with st.spinner("Qwen3 is analyzing handwriting..."):
+                        # 直接调用内置函数
+                        res = call_qwen_ocr(uploaded_file)
+                        
+                        if "Error" in res:
                             st.error(res)
-                            st.warning("Please try Simulation Mode.")
+                            st.warning("Switch to Simulation Mode if error persists.")
                         else:
                             st.session_state['ocr_result'] = res
-                            st.success("Success!")
-                else:
-                    st.warning("Enter Key or use Simulation.")
+                            st.success("Analysis Complete!")
 
     with col2:
         st.markdown("### 📝 Result")
@@ -201,3 +237,4 @@ elif page == "My Dashboard":
                 st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
     else:
         st.info("No data yet.")
+
