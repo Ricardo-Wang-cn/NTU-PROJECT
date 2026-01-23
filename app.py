@@ -8,7 +8,7 @@ from openai import OpenAI
 # ================= 1. UI 配置 =================
 st.set_page_config(
     page_title="Mistake-Driven Learning", 
-    page_icon="🎓", 
+    page_icon="", 
     layout="wide" 
 )
 
@@ -193,7 +193,7 @@ with st.sidebar:
 # ================= 5. 页面内容 =================
 
 if page == "Home (Scan)":
-    st.title("📸 AI Scan & Learn")
+    st.title("AI Scan & Learn")
     st.caption("Upload homework. The AI analyzes mistakes instantly.")
     
     # === 布局：垂直分布 (Vertical Layout) ===
@@ -250,7 +250,7 @@ if page == "Home (Scan)":
             st.warning("Input is empty.")
 
 elif page == "My Dashboard":
-    st.title("📊 Learning Dashboard")
+    st.title("Learning Dashboard")
     df = st.session_state['global_db']
     
     if not df.empty:
@@ -273,7 +273,7 @@ elif page == "My Dashboard":
             st.altair_chart(chart, use_container_width=True)
 
         st.markdown("---")
-        st.subheader("📝 AI Feedback & Review")
+        st.subheader("AI Feedback & Review")
         
         display_df = wrong_df if not wrong_df.empty else df
         
@@ -291,3 +291,4 @@ elif page == "My Dashboard":
                 st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
     else:
         st.info("No data available yet.")
+
