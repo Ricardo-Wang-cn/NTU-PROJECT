@@ -12,34 +12,840 @@ st.set_page_config(
     layout="wide" 
 )
 
+# 初始化主题状态
+if 'theme' not in st.session_state:
+    st.session_state['theme'] = 'dark'  # 默认深色主题
+
 st.markdown("""
 <style>
-    .stApp { background-color: #f8f9fa; }
+    /* 科技感深色背景 - 深蓝灰渐变 */
+    .stApp {
+        background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 25%, #1e2749 50%, #0f1419 75%, #0a0e27 100%);
+        background-size: 400% 400%;
+        animation: gradientShift 20s ease infinite;
+    }
     
-    /* 卡片容器样式 */
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    
+    /* 顶部Header区域 - 深色风格 */
+    header[data-testid="stHeader"] {
+        background: rgba(10, 15, 30, 0.95) !important;
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(64, 224, 208, 0.15);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* 顶部装饰条 */
+    .stApp > header {
+        background: rgba(10, 15, 30, 0.95) !important;
+    }
+    
+    /* 菜单按钮区域 */
+    #MainMenu {
+        visibility: hidden;
+    }
+    
+    /* 设置按钮区域 */
+    .stDeployButton {
+        display: none;
+    }
+    
+    /* 顶部工具栏 */
+    div[data-testid="stToolbar"] {
+        background: rgba(10, 15, 30, 0.95) !important;
+    }
+    
+    /* 移除顶部默认装饰 */
+    .stApp > div:first-child {
+        background: transparent !important;
+    }
+    
+    /* 顶部所有白色背景元素 */
+    header, .stApp header, [data-testid="stHeader"] {
+        background: rgba(10, 15, 30, 0.95) !important;
+        backdrop-filter: blur(20px);
+    }
+    
+    /* 顶部按钮和链接 */
+    header button, header a {
+        color: #40e0d0 !important;
+    }
+    
+    header button:hover, header a:hover {
+        color: #00d4ff !important;
+    }
+    
+    /* 移除顶部所有可能的白色背景 */
+    .stApp header,
+    .stApp > div:first-child,
+    .stApp > div:first-child > div,
+    header[data-testid="stHeader"],
+    header[data-testid="stHeader"] > div {
+        background: rgba(10, 15, 30, 0.95) !important;
+        backdrop-filter: blur(20px);
+    }
+    
+    /* 修复顶部间距 */
+    .stApp > div:first-child > div:first-child {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* 主内容区域 - 深色玻璃态 */
+    .main .block-container {
+        background: rgba(20, 25, 40, 0.85);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(64, 224, 208, 0.1);
+        margin-top: 1rem;
+        border: 1px solid rgba(64, 224, 208, 0.1);
+    }
+    
+    /* 移除所有白色背景 */
+    .main {
+        background: transparent !important;
+    }
+    
+    /* 页面容器 */
+    .stApp > div:first-child > div:first-child {
+        background: transparent !important;
+    }
+    
+    /* 确保没有白色边距 */
+    .stApp > div {
+        background: transparent !important;
+    }
+    
+    /* 移除顶部间距的白色 */
+    .stApp > header + div {
+        background: transparent !important;
+    }
+    
+    /* 卡片容器样式 - 深色科技感 */
     div[data-testid="metric-container"] {
-        background-color: white;
-        border: 1px solid #e0e0e0;
-        padding: 15px;
-        border-radius: 12px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        background: linear-gradient(135deg, rgba(30, 40, 60, 0.9) 0%, rgba(20, 30, 50, 0.8) 100%);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(64, 224, 208, 0.2);
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    /* 侧边栏样式 */
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(64, 224, 208, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        border-color: rgba(64, 224, 208, 0.4);
+    }
+    
+    /* 侧边栏样式 - 与主页面统一 */
     section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #e5e7eb;
+        background: rgba(20, 25, 40, 0.85) !important;
+        backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(64, 224, 208, 0.15);
+        box-shadow: 2px 0 20px rgba(0, 0, 0, 0.5);
     }
     
-    /* 字体优化 */
-    h1, h2, h3 { font-family: 'Inter', sans-serif; color: #2d3748; }
+    /* 侧边栏内容区域 */
+    section[data-testid="stSidebar"] > div {
+        background: transparent !important;
+    }
     
-    /* 上传组件优化 */
+    /* 侧边栏内所有文本颜色 - 确保可见 */
+    section[data-testid="stSidebar"] * {
+        color: #e0e7ff !important;
+    }
+    
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] div,
+    section[data-testid="stSidebar"] label {
+        color: #e0e7ff !important;
+    }
+    
+    /* 侧边栏标题 */
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        color: #e0e7ff !important;
+    }
+    
+    /* 侧边栏成功/信息提示框文字 */
+    section[data-testid="stSidebar"] .stSuccess,
+    section[data-testid="stSidebar"] .stInfo,
+    section[data-testid="stSidebar"] .stWarning {
+        color: #e0e7ff !important;
+    }
+    
+    section[data-testid="stSidebar"] .stSuccess *,
+    section[data-testid="stSidebar"] .stInfo *,
+    section[data-testid="stSidebar"] .stWarning * {
+        color: #e0e7ff !important;
+    }
+    
+    /* 侧边栏分隔线 */
+    section[data-testid="stSidebar"] hr {
+        border-color: rgba(64, 224, 208, 0.3) !important;
+        background-color: rgba(64, 224, 208, 0.3) !important;
+    }
+    
+    /* 侧边栏图片 - 无边框，仅提亮 */
+    section[data-testid="stSidebar"] img {
+        opacity: 1 !important;
+        filter: brightness(1.3);
+        background: transparent !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    /* 侧边栏图片容器 - 无边框 */
+    section[data-testid="stSidebar"] .stImage {
+        background: transparent !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        margin-bottom: 20px !important;
+    }
+    
+    /* 侧边栏所有容器 */
+    section[data-testid="stSidebar"] .element-container,
+    section[data-testid="stSidebar"] .stMarkdown {
+        color: #e0e7ff !important;
+    }
+    
+    /* 字体优化 - 浅色文字 */
+    h1, h2, h3 {
+        font-family: 'Inter', 'SF Pro Display', -apple-system, sans-serif;
+        color: #e0e7ff;
+        font-weight: 700;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* 普通文本颜色 */
+    .stMarkdown, p, div, span, label {
+        color: #cbd5e1 !important;
+    }
+    
+    /* 按钮动态效果 - 科技感青色 */
+    .stButton > button {
+        background: linear-gradient(135deg, #40e0d0 0%, #00d4ff 100%);
+        color: #0a0e27;
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 15px rgba(64, 224, 208, 0.4), 0 0 20px rgba(64, 224, 208, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stButton > button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+        transition: left 0.5s;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 8px 25px rgba(64, 224, 208, 0.6), 0 0 30px rgba(64, 224, 208, 0.3);
+        background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+    }
+    
+    .stButton > button:hover::before {
+        left: 100%;
+    }
+    
+    .stButton > button:active {
+        transform: translateY(0) scale(0.98);
+        box-shadow: 0 2px 10px rgba(64, 224, 208, 0.4);
+    }
+    
+    /* Primary 按钮特殊效果 - 科技感渐变 */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #00b8d4 100%);
+        background-size: 200% 200%;
+        animation: gradientMove 3s ease infinite;
+        color: #0a0e27;
+        box-shadow: 0 4px 20px rgba(64, 224, 208, 0.5), 0 0 25px rgba(64, 224, 208, 0.3);
+    }
+    
+    @keyframes gradientMove {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+    
+    .stButton > button[kind="primary"]:hover {
+        animation: none;
+        background-position: 100% 50%;
+    }
+    
+    /* Secondary 按钮样式 - 深色边框 */
+    .stButton > button[kind="secondary"] {
+        background: rgba(30, 40, 60, 0.6);
+        color: #40e0d0;
+        border: 2px solid rgba(64, 224, 208, 0.4);
+        backdrop-filter: blur(10px);
+    }
+    
+    .stButton > button[kind="secondary"]:hover {
+        background: rgba(64, 224, 208, 0.2);
+        color: #40e0d0;
+        border-color: rgba(64, 224, 208, 0.6);
+        box-shadow: 0 0 15px rgba(64, 224, 208, 0.3);
+    }
+    
+    /* 上传组件优化 - 深色风格 */
     div[data-testid="stFileUploader"] {
         margin-bottom: 20px;
+        background: rgba(20, 30, 50, 0.6);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 1rem;
+        border: 2px dashed rgba(64, 224, 208, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    div[data-testid="stFileUploader"]:hover {
+        border-color: rgba(64, 224, 208, 0.6);
+        background: rgba(30, 40, 60, 0.7);
+        box-shadow: 0 0 15px rgba(64, 224, 208, 0.2);
+    }
+    
+    /* 上传组件内的提示文字 - 黑色字体 */
+    div[data-testid="stFileUploader"] p,
+    div[data-testid="stFileUploader"] span,
+    div[data-testid="stFileUploader"] div,
+    div[data-testid="stFileUploader"] label,
+    div[data-testid="stFileUploader"] * {
+        color: #000000 !important;
+        font-weight: 600 !important;
+    }
+    
+    /* 上传组件的图标 - 黑色 */
+    div[data-testid="stFileUploader"] svg {
+        color: #000000 !important;
+        fill: #000000 !important;
+        stroke: #000000 !important;
+        opacity: 1 !important;
+    }
+    
+    /* 确保所有文字都是黑色 */
+    div[data-testid="stFileUploader"] *:not(svg) {
+        color: #000000 !important;
+    }
+    
+    /* 文本区域样式 - 深色 */
+    .stTextArea > div > div > textarea {
+        background: rgba(20, 30, 50, 0.8);
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(64, 224, 208, 0.2);
+        border-radius: 12px;
+        color: #e0e7ff !important;
+        transition: all 0.3s ease;
+    }
+    
+    /* 文本区域占位符文字 - 提高对比度 */
+    .stTextArea > div > div > textarea::placeholder {
+        color: #cbd5e1 !important;
+        opacity: 0.9 !important;
+        font-weight: 500 !important;
+    }
+    
+    .stTextArea > div > div > textarea::-webkit-input-placeholder {
+        color: #cbd5e1 !important;
+        opacity: 0.9 !important;
+        font-weight: 500 !important;
+    }
+    
+    .stTextArea > div > div > textarea::-moz-placeholder {
+        color: #cbd5e1 !important;
+        opacity: 0.9 !important;
+        font-weight: 500 !important;
+    }
+    
+    .stTextArea > div > div > textarea:-ms-input-placeholder {
+        color: #cbd5e1 !important;
+        opacity: 0.9 !important;
+        font-weight: 500 !important;
+    }
+    
+    .stTextArea > div > div > textarea:focus {
+        border-color: rgba(64, 224, 208, 0.6);
+        box-shadow: 0 0 0 3px rgba(64, 224, 208, 0.1), 0 0 15px rgba(64, 224, 208, 0.2);
+        background: rgba(25, 35, 55, 0.9);
+    }
+    
+    /* 文本区域标签文字 */
+    .stTextArea > label {
+        color: #e0e7ff !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Radio 按钮样式 - 深色 */
+    .stRadio > div {
+        background: rgba(20, 30, 50, 0.6);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 0.5rem;
+        border: 1px solid rgba(64, 224, 208, 0.1);
+    }
+    
+    /* 成功/错误/信息提示框样式 - 深色 */
+    .stSuccess, .stError, .stInfo, .stWarning {
+        border-radius: 12px;
+        padding: 1rem;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(64, 224, 208, 0.1);
+    }
+    
+    /* 图表容器 - 深色 */
+    .stAltairChart {
+        background: rgba(20, 30, 50, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid rgba(64, 224, 208, 0.1);
+    }
+    
+    /* Expander 样式 - 深色 */
+    .streamlit-expanderHeader {
+        background: linear-gradient(135deg, rgba(64, 224, 208, 0.1) 0%, rgba(0, 212, 255, 0.1) 100%);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(64, 224, 208, 0.1);
+    }
+    
+    .streamlit-expanderHeader:hover {
+        background: linear-gradient(135deg, rgba(64, 224, 208, 0.2) 0%, rgba(0, 212, 255, 0.2) 100%);
+        border-color: rgba(64, 224, 208, 0.3);
+    }
+    
+    /* 滚动条美化 - 科技感 */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: rgba(10, 15, 30, 0.5);
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #40e0d0 0%, #00d4ff 100%);
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+        box-shadow: 0 0 10px rgba(64, 224, 208, 0.5);
+    }
+    
+    /* 图片容器 */
+    .stImage > img {
+        border-radius: 12px;
+        border: 1px solid rgba(64, 224, 208, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* 移除所有默认白色背景 */
+    div[data-baseweb="base"] {
+        background: transparent !important;
+    }
+    
+    /* 确保body也是深色 */
+    body {
+        background: transparent !important;
+    }
+    
+    /* 移除Streamlit默认的白色装饰 */
+    .stApp > div:first-child {
+        background: transparent !important;
+    }
+    
+    /* 顶部状态栏 */
+    .stStatusWidget {
+        background: rgba(10, 15, 30, 0.8) !important;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(64, 224, 208, 0.2);
+    }
+    
+    /* 确保所有div背景透明或深色 */
+    div:not([class*="metric"]):not([class*="block-container"]):not([data-testid]) {
+        background: transparent !important;
+    }
+    
+    /* 修复可能的白色边框 */
+    * {
+        border-color: rgba(64, 224, 208, 0.1) !important;
+    }
+    
+    /* 交互体验提升 - 拖拽上传提示动画 */
+    div[data-testid="stFileUploader"] {
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    div[data-testid="stFileUploader"]:hover {
+        transform: scale(1.02);
+    }
+    
+    /* 文件上传区域的拖拽提示 */
+    div[data-testid="stFileUploader"]::after {
+        content: 'Drag & Drop Files Here';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: rgba(64, 224, 208, 0.7);
+        font-size: 0.85rem;
+        font-weight: 600;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 1;
+        background: rgba(20, 30, 50, 0.8);
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 2px dashed rgba(64, 224, 208, 0.5);
+    }
+    
+    div[data-testid="stFileUploader"]:hover::after {
+        opacity: 1;
+    }
+    
+    /* 成功/错误消息动画 */
+    .stSuccess, .stError, .stInfo, .stWarning {
+        animation: slideIn 0.5s ease-out;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* 按钮点击波纹效果 */
+    .stButton > button {
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stButton > button::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+    
+    .stButton > button:active::after {
+        width: 300px;
+        height: 300px;
+    }
+    
+    /* 加载动画增强 */
+    .stSpinner > div {
+        border-color: #40e0d0 !important;
+    }
+    
+    /* 卡片悬停增强 */
+    div[data-testid="metric-container"] {
+        cursor: pointer;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# 根据主题应用样式
+def apply_theme(theme):
+    if theme == 'light':
+        st.markdown("""
+        <style>
+        /* 浅色主题样式 */
+        .stApp {
+            background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 25%, #cbd5e1 50%, #f1f5f9 75%, #ffffff 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 20s ease infinite;
+        }
+        
+        .main .block-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(100, 116, 139, 0.1);
+            margin-top: 1rem;
+            border: 1px solid rgba(100, 116, 139, 0.1);
+        }
+        
+        /* 顶栏 - 与主页面统一，确保覆盖所有顶栏元素 */
+        header[data-testid="stHeader"],
+        .stApp > header,
+        header,
+        .stApp header,
+        [data-testid="stHeader"],
+        div[data-testid="stToolbar"],
+        .stApp header,
+        .stApp > div:first-child,
+        .stApp > div:first-child > div,
+        header[data-testid="stHeader"] > div,
+        header > div,
+        header * {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(20px) !important;
+        }
+        
+        header[data-testid="stHeader"],
+        .stApp > header,
+        header {
+            border-bottom: 1px solid rgba(100, 116, 139, 0.1) !important;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
+        }
+        
+        /* 顶栏所有文字和按钮 */
+        header button, 
+        header a,
+        header span,
+        header div,
+        header p,
+        header * {
+            color: #3b82f6 !important;
+        }
+        
+        header button:hover, 
+        header a:hover {
+            color: #2563eb !important;
+        }
+        
+        /* 侧边栏 - 与主页面统一 */
+        section[data-testid="stSidebar"] {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(100, 116, 139, 0.1) !important;
+        }
+        
+        section[data-testid="stSidebar"] > div {
+            background: transparent !important;
+        }
+        
+        /* 侧边栏所有文字颜色 - 深色 */
+        section[data-testid="stSidebar"] *,
+        section[data-testid="stSidebar"] p,
+        section[data-testid="stSidebar"] span,
+        section[data-testid="stSidebar"] div,
+        section[data-testid="stSidebar"] label,
+        section[data-testid="stSidebar"] .stMarkdown,
+        section[data-testid="stSidebar"] .element-container {
+            color: #334155 !important;
+        }
+        
+        section[data-testid="stSidebar"] h1,
+        section[data-testid="stSidebar"] h2,
+        section[data-testid="stSidebar"] h3,
+        section[data-testid="stSidebar"] h4,
+        section[data-testid="stSidebar"] h5,
+        section[data-testid="stSidebar"] h6 {
+            color: #1e293b !important;
+        }
+        
+        section[data-testid="stSidebar"] .stSuccess,
+        section[data-testid="stSidebar"] .stInfo,
+        section[data-testid="stSidebar"] .stWarning,
+        section[data-testid="stSidebar"] .stSuccess *,
+        section[data-testid="stSidebar"] .stInfo *,
+        section[data-testid="stSidebar"] .stWarning * {
+            color: #334155 !important;
+        }
+        
+        /* 侧边栏按钮文字 */
+        section[data-testid="stSidebar"] .stButton > button {
+            color: #3b82f6 !important;
+        }
+        
+        section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+            color: white !important;
+        }
+        
+        section[data-testid="stSidebar"] hr {
+            border-color: rgba(100, 116, 139, 0.2) !important;
+        }
+        
+        /* 侧边栏图片在浅色模式下 */
+        section[data-testid="stSidebar"] img {
+            filter: brightness(1);
+        }
+        
+        section[data-testid="stSidebar"] .stImage {
+            background: transparent !important;
+        }
+        
+        /* 所有标题文字 - 深色 */
+        h1, h2, h3, h4, h5, h6 {
+            color: #1e293b !important;
+        }
+        
+        /* 所有正文文字 - 深色 */
+        .stMarkdown, 
+        p, 
+        div, 
+        span, 
+        label,
+        .stCaption,
+        .stText,
+        .stCode,
+        .stMarkdownContainer,
+        .element-container,
+        .stAlert,
+        .stSuccess,
+        .stError,
+        .stInfo,
+        .stWarning {
+            color: #334155 !important;
+        }
+        
+        /* 确保所有文本元素都是深色 */
+        body,
+        .main,
+        .main *:not(button):not(input):not(textarea):not(select) {
+            color: #334155 !important;
+        }
+        
+        /* 输入框文字 */
+        input,
+        textarea,
+        select {
+            color: #1e293b !important;
+        }
+        
+        /* 占位符文字 */
+        ::placeholder,
+        ::-webkit-input-placeholder,
+        ::-moz-placeholder,
+        :-ms-input-placeholder {
+            color: #64748b !important;
+            opacity: 0.8 !important;
+        }
+        
+        /* 链接颜色 */
+        a {
+            color: #3b82f6 !important;
+        }
+        
+        a:hover {
+            color: #2563eb !important;
+        }
+        
+        /* 表格文字 */
+        table,
+        th,
+        td {
+            color: #334155 !important;
+        }
+        
+        /* 图表文字 */
+        .stAltairChart,
+        .stAltairChart * {
+            color: #334155 !important;
+        }
+        
+        div[data-testid="metric-container"] {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
+            border: 1px solid rgba(100, 116, 139, 0.2);
+        }
+        
+        .stButton > button {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+        
+        .stButton > button[kind="secondary"] {
+            background: rgba(241, 245, 249, 0.9);
+            color: #3b82f6;
+            border: 2px solid #3b82f6;
+        }
+        
+        /* 侧边栏按钮在浅色模式下 */
+        section[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+            background: rgba(241, 245, 249, 0.9);
+            color: #3b82f6;
+            border: 2px solid #3b82f6;
+        }
+        
+        section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+        
+        .stTextArea > div > div > textarea {
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid rgba(100, 116, 139, 0.2);
+            color: #1e293b;
+        }
+        
+        div[data-testid="stFileUploader"] {
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px dashed rgba(59, 130, 246, 0.3);
+        }
+        
+        div[data-testid="stFileUploader"] * {
+            color: #1e293b !important;
+        }
+        
+        /* 确保顶栏完全覆盖 - 增加优先级 */
+        .stApp header[data-testid="stHeader"],
+        .stApp > header[data-testid="stHeader"],
+        body > header[data-testid="stHeader"],
+        html body header[data-testid="stHeader"] {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(20px) !important;
+            border-bottom: 1px solid rgba(100, 116, 139, 0.1) !important;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
+        }
+        
+        /* 顶栏内部所有元素 */
+        header[data-testid="stHeader"] *,
+        header[data-testid="stHeader"] > *,
+        header[data-testid="stHeader"] > div > * {
+            background: transparent !important;
+            color: #3b82f6 !important;
+        }
+        
+        /* 确保工具栏也是浅色 */
+        div[data-testid="stToolbar"],
+        div[data-testid="stToolbar"] * {
+            background: rgba(255, 255, 255, 0.95) !important;
+            color: #3b82f6 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+# 应用当前主题
+if st.session_state['theme'] == 'light':
+    apply_theme('light')
 
 # ================= 2. API 配置 (内置 Key) =================
 
@@ -104,7 +910,9 @@ if 'global_db' not in st.session_state:
     st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
 
 def parse_and_solve(text_block):
+    # 统一替换所有可能的符号
     text_block = text_block.replace('÷', '/').replace('x', '*').replace('X', '*')
+    text_block = text_block.replace('×', '*')  # 也处理×符号
     text_block = text_block.replace('（', '(').replace('）', ')')
     
     results = []
@@ -117,54 +925,107 @@ def parse_and_solve(text_block):
     
     for line in lines:
         line = line.strip()
-        if not line or '=' not in line:
+        if not line:
             processed_count += 1
+            if total_lines > 0:
+                progress_bar.progress(min(processed_count / total_lines, 1.0))
             continue
             
+        # 检查是否包含等号
+        if '=' not in line:
+            processed_count += 1
+            if total_lines > 0:
+                progress_bar.progress(min(processed_count / total_lines, 1.0))
+            continue
+            
+        # 分割等号
         parts = line.split('=', 1) 
         if len(parts) != 2: 
             processed_count += 1
+            if total_lines > 0:
+                progress_bar.progress(min(processed_count / total_lines, 1.0))
             continue
             
         lhs_str = parts[0].strip()
         rhs_str = parts[1].strip()
         
-        # 允许数字、运算符号、括号
-        if not re.match(r'^[\d\s\+\-\*\/\.\(\)]+$', lhs_str):
+        # 移除左侧表达式中的所有空格
+        lhs_str = lhs_str.replace(' ', '').replace('\t', '')
+        
+        # 如果左侧为空，跳过
+        if not lhs_str:
             processed_count += 1
+            if total_lines > 0:
+                progress_bar.progress(min(processed_count / total_lines, 1.0))
+            continue
+        
+        # 验证左侧表达式：只允许数字、运算符和括号
+        # 使用更简单的正则表达式，-号放在字符类末尾
+        if not re.match(r'^[0-9+\-*/\.()]+$', lhs_str):
+            processed_count += 1
+            if total_lines > 0:
+                progress_bar.progress(min(processed_count / total_lines, 1.0))
+            continue
+        
+        # 验证右侧是否为有效数字
+        try:
+            user_ans = float(rhs_str.strip())
+        except (ValueError, TypeError):
+            processed_count += 1
+            if total_lines > 0:
+                progress_bar.progress(min(processed_count / total_lines, 1.0))
             continue
             
+        # 计算左侧表达式
         try:
-            correct_ans = eval(lhs_str) 
-            user_ans = float(rhs_str)
-            
-            is_right = abs(correct_ans - user_ans) < 0.01
-            
-            err_type = "Mixed Ops"
-            if '(' in lhs_str: err_type = "Parentheses Priority"
-            elif '+' in lhs_str and '*' not in lhs_str: err_type = "Addition"
-            elif '-' in lhs_str: err_type = "Subtraction"
-            elif '*' in lhs_str: err_type = "Multiplication"
-            elif '/' in lhs_str: err_type = "Division"
-            
-            display_eq = lhs_str.replace('*', '×').replace('/', '÷')
-            
-            explanation = "Correct!"
-            if not is_right:
-                explanation = get_ai_explanation(display_eq, user_ans, correct_ans)
-            
-            results.append({
-                'Equation': display_eq,
-                'User Answer': int(user_ans) if user_ans.is_integer() else user_ans,
-                'Correct Answer': int(correct_ans) if correct_ans.is_integer() else correct_ans,
-                'Status': "Correct" if is_right else "Incorrect",
-                'Error Type': "None" if is_right else err_type,
-                'Timestamp': timestamp,
-                'Explanation': explanation
-            })
-            
-        except Exception as e:
-            pass
+            correct_ans = eval(lhs_str)
+            # 确保结果是数字
+            if not isinstance(correct_ans, (int, float)):
+                processed_count += 1
+                if total_lines > 0:
+                    progress_bar.progress(min(processed_count / total_lines, 1.0))
+                continue
+        except (SyntaxError, NameError, TypeError, ZeroDivisionError) as e:
+            # 如果计算出错，跳过这一行
+            processed_count += 1
+            if total_lines > 0:
+                progress_bar.progress(min(processed_count / total_lines, 1.0))
+            continue
+        
+        # 判断是否正确
+        is_right = abs(correct_ans - user_ans) < 0.01
+        
+        # 判断错误类型
+        err_type = "Mixed Ops"
+        if '(' in lhs_str: 
+            err_type = "Parentheses Priority"
+        elif '+' in lhs_str and '*' not in lhs_str and '/' not in lhs_str: 
+            err_type = "Addition"
+        elif '-' in lhs_str and '*' not in lhs_str and '/' not in lhs_str and '+' not in lhs_str: 
+            err_type = "Subtraction"
+        elif '*' in lhs_str: 
+            err_type = "Multiplication"
+        elif '/' in lhs_str: 
+            err_type = "Division"
+        
+        # 显示用的方程（转换回×和÷）
+        display_eq = lhs_str.replace('*', '×').replace('/', '÷')
+        
+        # 生成解释
+        explanation = "Correct!"
+        if not is_right:
+            explanation = get_ai_explanation(display_eq, user_ans, correct_ans)
+        
+        # 添加到结果
+        results.append({
+            'Equation': display_eq,
+            'User Answer': int(user_ans) if isinstance(user_ans, float) and user_ans.is_integer() else user_ans,
+            'Correct Answer': int(correct_ans) if isinstance(correct_ans, float) and correct_ans.is_integer() else (int(correct_ans) if isinstance(correct_ans, int) else correct_ans),
+            'Status': "Correct" if is_right else "Incorrect",
+            'Error Type': "None" if is_right else err_type,
+            'Timestamp': timestamp,
+            'Explanation': explanation
+        })
         
         processed_count += 1
         if total_lines > 0:
@@ -177,8 +1038,26 @@ def parse_and_solve(text_block):
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2997/2997235.png", width=60)
     
-    # 导航菜单
-    page = st.radio("Menu", ["Home (Scan)", "My Dashboard"], label_visibility="collapsed")
+    # 初始化页面状态
+    if 'current_page' not in st.session_state:
+        st.session_state['current_page'] = "Home (Scan)"
+    
+    # 导航菜单 - 使用按钮替代radio
+    if st.button("Home (Scan)", type="secondary" if st.session_state['current_page'] != "Home (Scan)" else "primary", use_container_width=True):
+        st.session_state['current_page'] = "Home (Scan)"
+        st.rerun()
+    
+    if st.button("My Dashboard", type="secondary" if st.session_state['current_page'] != "My Dashboard" else "primary", use_container_width=True):
+        st.session_state['current_page'] = "My Dashboard"
+        st.rerun()
+    
+    st.markdown("---")
+    
+    # 主题切换按钮
+    theme_text = "Light Mode" if st.session_state['theme'] == 'dark' else "Dark Mode"
+    if st.button(f"{theme_text}", type="secondary", use_container_width=True):
+        st.session_state['theme'] = 'light' if st.session_state['theme'] == 'dark' else 'dark'
+        st.rerun()
     
     st.markdown("---")
     
@@ -190,64 +1069,80 @@ with st.sidebar:
         st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
         st.rerun()
 
+# 获取当前页面
+page = st.session_state['current_page']
+
 # ================= 5. 页面内容 =================
 
 if page == "Home (Scan)":
-    st.title("AI Scan & Learn")
-    st.caption("Upload homework. The AI analyzes mistakes instantly.")
+    # 使用容器增强视觉效果
+    with st.container():
+        st.title("AI Scan & Learn")
+        st.caption("Upload homework. The AI analyzes mistakes instantly.")
     
     # === 布局：垂直分布 (Vertical Layout) ===
     
-    # 1. 上传区域 (Top)
-    st.markdown("### 1. Upload Image")
-    uploaded_file = st.file_uploader("Choose an image...", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
-    
-    if uploaded_file:
-        # 图片居中显示
-        st.image(uploaded_file, caption="Uploaded Homework", width=500)
+    # 1. 上传区域 (Top) - 卡片式布局
+    with st.container():
+        st.markdown("### 1. Upload Image")
+        st.markdown("*Drag and drop your image or click to browse*")
         
-        # 识别按钮
-        if st.button("⚡ Start AI Analysis", type="primary", use_container_width=True):
-            # 这里的 Spinner 文案已改为通用的 AI
-            with st.spinner("AI is analyzing image..."):
-                res = call_ai_ocr(uploaded_file)
-                st.session_state['ocr_result'] = res
-                st.success("Scan Complete!")
+        uploaded_file = st.file_uploader("Choose an image...", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
+        
+        if uploaded_file:
+            # 图片居中显示，带边框和阴影
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(uploaded_file, caption="Uploaded Homework", width=500)
+            
+            # 识别按钮
+            if st.button("Start AI Analysis", type="primary", use_container_width=True):
+                with st.spinner("AI is analyzing image..."):
+                    res = call_ai_ocr(uploaded_file)
+                    st.session_state['ocr_result'] = res
+                    st.success("Scan Complete!")
 
     # 分隔线
     st.markdown("---")
 
-    # 2. 结果确认区域 (Bottom)
-    st.markdown("### 2. Verify & Process")
-    
-    current_text = st.session_state.get('ocr_result', "")
-    
-    # 如果还没有识别结果，给一个占位符提示
-    if not current_text and not uploaded_file:
-         st.info("👆 Please upload an image above to start.")
-    
-    # 文本框永远显示（即使为空）
-    user_input = st.text_area(
-        "Recognized Equations (Editable)", 
-        value=current_text, 
-        height=150,
-        placeholder="Waiting for scan result..."
-    )
-    
-    # 确认按钮
-    if st.button("Confirm & Generate Lessons ➡️", use_container_width=True):
+    # 2. 结果确认区域 (Bottom) - 卡片式布局
+    with st.container():
+        st.markdown("### 2. Verify & Process")
+        
+        current_text = st.session_state.get('ocr_result', "")
+        
+        # 如果还没有识别结果，给一个占位符提示
+        if not current_text and not uploaded_file:
+            st.info("Please upload an image above to start.")
+        
+        # 文本框永远显示（即使为空）
+        user_input = st.text_area(
+            "Recognized Equations (Editable)", 
+            value=current_text, 
+            height=150,
+            placeholder="Waiting for scan result...",
+            help="You can edit the recognized equations here before processing."
+        )
+        
+        # 显示字符统计
         if user_input:
-            # 这里的 Spinner 文案也改为通用的 AI
-            with st.spinner("AI is generating learning guide..."):
-                new_data = parse_and_solve(user_input)
-                if new_data:
-                    new_df = pd.DataFrame(new_data)
-                    st.session_state['global_db'] = pd.concat([st.session_state['global_db'], new_df], ignore_index=True)
-                    st.success(f"Success! {len(new_data)} equations processed. Check Dashboard.")
-                else:
-                    st.error("No valid equations found. Please check the format.")
-        else:
-            st.warning("Input is empty.")
+            char_count = len(user_input)
+            line_count = len(user_input.split('\n'))
+            st.caption(f"{char_count} characters, {line_count} lines")
+        
+        # 确认按钮
+        if st.button("Confirm & Generate Lessons", use_container_width=True):
+            if user_input:
+                with st.spinner("AI is generating learning guide..."):
+                    new_data = parse_and_solve(user_input)
+                    if new_data:
+                        new_df = pd.DataFrame(new_data)
+                        st.session_state['global_db'] = pd.concat([st.session_state['global_db'], new_df], ignore_index=True)
+                        st.success(f"Success! {len(new_data)} equations processed. Check Dashboard.")
+                    else:
+                        st.error("No valid equations found. Please check the format.")
+            else:
+                st.warning("Input is empty.")
 
 elif page == "My Dashboard":
     st.title("Learning Dashboard")
@@ -281,11 +1176,11 @@ elif page == "My Dashboard":
             if row['Status'] == 'Incorrect':
                 with st.container():
                     c1, c2, c3 = st.columns([0.5, 2, 2])
-                    with c1: st.error("❌")
+                    with c1: st.error("")
                     with c2: st.markdown(f"**{row['Equation']}**")
                     with c3: st.caption(f"Correct: {row['Correct Answer']}")
                     
-                    with st.expander(f"🤖 AI Analysis for {row['Equation']}"):
+                    with st.expander(f"AI Analysis for {row['Equation']}"):
                         st.info(f"**Explanation:**\n{row['Explanation']}")
                         
                 st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
