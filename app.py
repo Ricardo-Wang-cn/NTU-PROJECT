@@ -34,7 +34,7 @@ if 'user_name' not in st.session_state:
 
 # 简单的登录/注册逻辑
 def show_login_ui():
-    st.title("🔐 Login to Mistake-Driven Learning")
+    st.title("Login to Mistake-Driven Learning")
     col1, col2 = st.tabs(["Login", "Register"])
     with col1:
         u = st.text_input("Username")
@@ -283,6 +283,25 @@ st.markdown("""
     
     /* 普通文本颜色 */
     .stMarkdown, p, div, span, label {
+        color: #cbd5e1 !important;
+    }
+    
+    /* 确保所有markdown内容都有足够的对比度 */
+    .stMarkdown *,
+    .stMarkdown strong,
+    .stMarkdown b,
+    .stMarkdown p,
+    .stMarkdown div,
+    .stMarkdown span {
+        color: #cbd5e1 !important;
+    }
+    
+    /* 容器内的文本 */
+    .main .block-container .stMarkdown,
+    .main .block-container .stMarkdown *,
+    .main .block-container p,
+    .main .block-container span,
+    .main .block-container div:not(.stButton):not(.stMetric) {
         color: #cbd5e1 !important;
     }
     
@@ -631,6 +650,32 @@ st.markdown("""
     div[data-testid="metric-container"] {
         cursor: pointer;
     }
+    
+    /* 确保所有文本元素在深色主题下都有足够的对比度 */
+    .main .block-container *:not(button):not(input):not(textarea):not(select):not(svg):not(path) {
+        color: #cbd5e1 !important;
+    }
+    
+    /* 特别处理strong和b标签 */
+    strong, b {
+        color: #e0e7ff !important;
+        font-weight: 700 !important;
+    }
+    
+    /* 确保列容器内的文本可见 */
+    [data-testid="column"] .stMarkdown,
+    [data-testid="column"] .stMarkdown *,
+    [data-testid="column"] p,
+    [data-testid="column"] span,
+    [data-testid="column"] strong,
+    [data-testid="column"] b {
+        color: #cbd5e1 !important;
+    }
+    
+    [data-testid="column"] strong,
+    [data-testid="column"] b {
+        color: #e0e7ff !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -781,6 +826,25 @@ def apply_theme(theme):
             color: #334155 !important;
         }
         
+        /* 确保所有markdown内容在浅色主题下都有足够的对比度 */
+        .stMarkdown *,
+        .stMarkdown strong,
+        .stMarkdown b,
+        .stMarkdown p,
+        .stMarkdown div,
+        .stMarkdown span {
+            color: #1e293b !important;
+        }
+        
+        /* 容器内的文本 - 浅色主题下使用深色 */
+        .main .block-container .stMarkdown,
+        .main .block-container .stMarkdown *,
+        .main .block-container p,
+        .main .block-container span,
+        .main .block-container div:not(.stButton):not(.stMetric) {
+            color: #1e293b !important;
+        }
+        
         /* 确保所有文本元素都是深色 */
         body,
         .main,
@@ -893,6 +957,32 @@ def apply_theme(theme):
         div[data-testid="stToolbar"] * {
             background: rgba(255, 255, 255, 0.95) !important;
             color: #3b82f6 !important;
+        }
+        
+        /* 确保所有文本元素在浅色主题下都有足够的对比度 */
+        .main .block-container *:not(button):not(input):not(textarea):not(select):not(svg):not(path) {
+            color: #1e293b !important;
+        }
+        
+        /* 特别处理strong和b标签 - 浅色主题 */
+        strong, b {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+        
+        /* 确保列容器内的文本可见 - 浅色主题 */
+        [data-testid="column"] .stMarkdown,
+        [data-testid="column"] .stMarkdown *,
+        [data-testid="column"] p,
+        [data-testid="column"] span,
+        [data-testid="column"] strong,
+        [data-testid="column"] b {
+            color: #1e293b !important;
+        }
+        
+        [data-testid="column"] strong,
+        [data-testid="column"] b {
+            color: #0f172a !important;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -1063,26 +1153,26 @@ with st.sidebar:
         st.session_state['current_page'] = "Home (Scan)"
     
     # 显示当前登录的用户
-    st.markdown(f"👤 **User:** {st.session_state.get('user_name', 'Guest')}")
+    st.markdown(f"**User:** {st.session_state.get('user_name', 'Guest')}")
     st.markdown("---")
 
     # --- 3. 导航菜单 (Home / Dashboard / Forum) ---
     # 首页扫描
-    if st.button("🏠 Home (Scan)", 
+    if st.button("Home (Scan)", 
                  type="primary" if st.session_state['current_page'] == "Home (Scan)" else "secondary", 
                  use_container_width=True):
         st.session_state['current_page'] = "Home (Scan)"
         st.rerun()
     
     # 学习看板
-    if st.button("📊 My Dashboard", 
+    if st.button("My Dashboard", 
                  type="primary" if st.session_state['current_page'] == "My Dashboard" else "secondary", 
                  use_container_width=True):
         st.session_state['current_page'] = "My Dashboard"
         st.rerun()
     
     # 全局论坛 (联网功能)
-    if st.button("🌐 Global Forum", 
+    if st.button("Global Forum", 
                  type="primary" if st.session_state['current_page'] == "Global Forum" else "secondary", 
                  use_container_width=True):
         st.session_state['current_page'] = "Global Forum"
@@ -1093,7 +1183,7 @@ with st.sidebar:
     # --- 4. 系统设置 (主题/状态) ---
     
     # 主题切换
-    theme_text = "☀️ Light Mode" if st.session_state['theme'] == 'dark' else "🌙 Dark Mode"
+    theme_text = "Light Mode" if st.session_state['theme'] == 'dark' else "Dark Mode"
     if st.button(f"{theme_text}", type="secondary", use_container_width=True):
         st.session_state['theme'] = 'light' if st.session_state['theme'] == 'dark' else 'dark'
         st.rerun()
@@ -1102,7 +1192,7 @@ with st.sidebar:
     st.success("🟢 AI System: Online")
     
     # 退出登录按钮 (新增：方便切换账号)
-    if st.button("🚪 Logout", use_container_width=True):
+    if st.button("Logout", use_container_width=True):
         st.session_state['logged_in'] = False
         st.session_state['user_name'] = ""
         st.rerun()
@@ -1110,7 +1200,7 @@ with st.sidebar:
     st.markdown("---")
     
     # 重置本地临时数据
-    if st.button("🗑️ Reset Local Data", type="secondary", help="Only clears current session data"):
+    if st.button("Reset Local Data", type="secondary", help="Only clears current session data"):
         st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
         st.rerun()
 
@@ -1126,7 +1216,7 @@ page = st.session_state['current_page']
 # --- 页面 A: AI 扫描识别 ---
 if page == "Home (Scan)":
     with st.container():
-        st.title("🚀 Advanced AI Math Scanner")
+        st.title("Advanced AI Math Scanner")
         st.caption(f"Welcome, {st.session_state['user_name']}! Now supporting Arithmetic, Roots, Calculus, and more.")
     
     # ... 其余上传逻辑保持不变 ...
@@ -1203,8 +1293,8 @@ elif page == "My Dashboard":
             with st.container():
                 c1, c2, c3 = st.columns([0.5, 2, 2])
                 with c1: 
-                    if row['Status'] == 'Incorrect': st.error("✘")
-                    else: st.success("✔")
+                    if row['Status'] == 'Incorrect': st.error("")
+                    else: st.success("")
                 with c2: st.markdown(f"**{row['Equation']}**")
                 with c3: st.caption(f"Correct Answer: {row['Correct Answer']}")
                 
@@ -1217,11 +1307,11 @@ elif page == "My Dashboard":
 
 # --- 页面 C: 全局联网论坛 (修正版) ---
 elif page == "Global Forum":
-    st.title("🌐 Global Discussion Forum")
+    st.title("Global Discussion Forum")
     st.caption(f"Logged in as: {st.session_state['user_name']}")
 
     # --- 1. 发帖区域 ---
-    with st.expander("📝 Create a New Post"):
+    with st.expander("Create a New Post"):
         msg = st.text_area("What's on your mind?", key="new_post_text")
         uploaded_img = st.file_uploader("Upload an image (optional)", type=['png', 'jpg', 'jpeg'])
         
@@ -1260,14 +1350,14 @@ elif page == "Global Forum":
                 
                 # 图片展开
                 if p.get('image_url'):
-                    with st.expander("🖼️ View Image"):
+                    with st.expander("View Image"):
                         st.image(p['image_url'])
 
                 # --- 回复逻辑修正 ---
                 replies_res = supabase.table("forum_replies").select("*").eq("post_id", p['id']).order("created_at", desc=False).execute()
                 replies = replies_res.data
                 
-                with st.expander(f"💬 {len(replies)} Replies"):
+                with st.expander(f"{len(replies)} Replies"):
                     for r in replies:
                         st.markdown(f"**@{r['username']}:** {r['content']}")
                     
