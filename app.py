@@ -1,9 +1,50 @@
 import streamlit as st
+
+from supabase import create_client, Client
+
+# 初始化云端连接 (请替换成你在 Supabase 申请的地址)
+SUPABASE_URL = "https://tpokdzclxncdtmfxvkuy.supabase.co"
+SUPABASE_KEY = "sb_publishable_ihHrH-gkKfN480wulWcikw_x5JBNPFs"
+supabase: Client = create_client(https://tpokdzclxncdtmfxvkuy.supabase.co, sb_publishable_ihHrH-gkKfN480wulWcikw_x5JBNPFs)
+
 import pandas as pd
 import re
 import altair as alt
 import base64
 from openai import OpenAI
+
+# 初始化登录状态
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
+if 'user_name' not in st.session_state:
+    st.session_state['user_name'] = ""
+
+# 简单的登录/注册逻辑
+def show_login_ui():
+    st.title("🔐 Login to Mistake-Driven Learning")
+    col1, col2 = st.tabs(["Login", "Register"])
+    with col1:
+        u = st.text_input("Username")
+        p = st.text_input("Password", type="password")
+        if st.button("Login"):
+            # 在云端查找用户
+            res = supabase.table("users").select("*").eq("username", u).eq("password", p).execute()
+            if len(res.data) > 0:
+                st.session_state['logged_in'] = True
+                st.session_state['user_name'] = u
+                st.rerun()
+            else: st.error("Invalid credentials")
+    with col2:
+        new_u = st.text_input("New Username")
+        new_p = st.text_input("New Password", type="password")
+        if st.button("Register"):
+            supabase.table("users").insert({"username": new_u, "password": new_p}).execute()
+            st.success("Registered! Now login.")
+
+# 如果未登录，直接停止后续代码运行
+if not st.session_state['logged_in']:
+    show_login_ui()
+    st.stop() # 关键：不运行后面的代码
 
 # ================= 1. UI 配置 =================
 st.set_page_config(
@@ -1039,6 +1080,12 @@ with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2997/2997235.png", width=60)
     
     # 初始化页面状态
+
+    # 找到你侧边栏导航按钮的位置，添加这一段：
+    if st.button("Global Forum", type="secondary" if st.session_state['current_page'] != "Global Forum" else "primary", use_container_width=True):
+        st.session_state['current_page'] = "Global Forum"
+        st.rerun()
+    
     if 'current_page' not in st.session_state:
         st.session_state['current_page'] = "Home (Scan)"
     
@@ -1178,7 +1225,34 @@ elif page == "My Dashboard":
                     c1, c2, c3 = st.columns([0.5, 2, 2])
                     with c1: st.error("")
                     with c2: st.markdown(f"**{row['Equation']}**")
-                    with c3: st.caption(f"Correct: {row['Correct Answer']}")
+                    with c3: st.caption(f"Correct: {row['Correlif page == "Global Forum":
+    st.title("🌐 Global Discussion Forum")
+    st.caption(f"Logged in as: {st.session_state['user_name']}")
+
+    # --- 发帖区域 ---
+    msg = st.text_input("Post a message to everyone:", placeholder="Ask a question...")
+    if st.button("Send to All", type="primary"):
+        if msg:
+            supabase.table("forum").insert({
+                "username": st.session_state['user_name'], 
+                "content": msg
+            }).execute()
+            st.rerun()
+
+    st.markdown("---")
+
+    # --- 显示实时消息 ---
+    messages = supabase.table("forum").select("*").order("id", desc=True).limit(20).execute()
+    
+    for m in messages.data:
+        # 使用你原本定义的样式，让它看起来更统一
+        st.markdown(f"""
+        <div style="background: rgba(30, 40, 60, 0.6); padding: 15px; border-radius: 12px; border-left: 5px solid #40e0d0; margin-bottom: 15px;">
+            <strong style="color: #40e0d0;">@{m['username']}</strong>
+            <p style="margin: 5px 0; color: #e0e7ff; font-size: 1.1rem;">{m['content']}</p>
+            <small style="color: rgba(64, 224, 208, 0.5);">{m['created_at'][:16]}</small>
+        </div>
+        """, unsafe_allow_html=True)ect Answer']}")
                     
                     with st.expander(f"AI Analysis for {row['Equation']}"):
                         st.info(f"**Explanation:**\n{row['Explanation']}")
@@ -1186,4 +1260,5 @@ elif page == "My Dashboard":
                 st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
     else:
         st.info("No data available yet.")
+
 
