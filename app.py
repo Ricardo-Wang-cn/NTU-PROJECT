@@ -5,7 +5,7 @@ from supabase import create_client, Client
 # 初始化云端连接 (请替换成你在 Supabase 申请的地址)
 SUPABASE_URL = "https://tpokdzclxncdtmfxvkuy.supabase.co"
 SUPABASE_KEY = "sb_publishable_ihHrH-gkKfN480wulWcikw_x5JBNPFs"
-supabase: Client = create_client(https://tpokdzclxncdtmfxvkuy.supabase.co, sb_publishable_ihHrH-gkKfN480wulWcikw_x5JBNPFs)
+supabase: Client = create_client("https://tpokdzclxncdtmfxvkuy.supabase.co", "sb_publishable_ihHrH-gkKfN480wulWcikw_x5JBNPFs")
 
 import pandas as pd
 import re
@@ -1260,5 +1260,6 @@ elif page == "My Dashboard":
                 st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
     else:
         st.info("No data available yet.")
+
 
 
