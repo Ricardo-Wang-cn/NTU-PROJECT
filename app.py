@@ -1250,50 +1250,102 @@ elif page == "My Dashboard":
         st.info("No data available. Go to Scan page first.")
 
 # --- 页面 C: 全局联网论坛 (跨设备交互) ---
+# --- 页面 C: 全局联网论坛 (增强版：支持图片与回复) ---
 elif page == "Global Forum":
     st.title("🌐 Global Discussion Forum")
-    st.caption(f"Share insights with other students. Logged in as: {st.session_state['user_name']}")
+    st.caption(f"Share insights & images. Logged in as: {st.session_state['user_name']}")
 
-    # 1. 发帖输入框
-    with st.container():
-        msg = st.text_input("Post a message to the community:", placeholder="Type your message here...", key="forum_msg_input")
-        if st.button("Post Message", type="primary"):
-            if msg:
+    # --- 1. 发帖区域 (带图片上传) ---
+    with st.expander("📝 Create a New Post (Text & Image)"):
+        msg = st.text_area("What's on your mind?", placeholder="Type your message here...", key="new_post_text")
+        uploaded_img = st.file_uploader("Upload an image (optional)", type=['png', 'jpg', 'jpeg'], key="forum_img_uploader")
+        
+        if st.button("Post to Community", type="primary", use_container_width=True):
+            if msg or uploaded_img:
                 try:
-                    # 将消息插入到 Supabase 云端数据库
+                    img_url = None
+                    # 如果有图片，先上传到 Supabase Storage
+                    if uploaded_img:
+                        file_path = f"public/{st.session_state['user_name']}_{pd.Timestamp.now().timestamp()}.jpg"
+                        # 上传文件
+                        supabase.storage.from_("forum_images").upload(file_path, uploaded_img.getvalue())
+                        # 获取公开访问链接
+                        img_url = supabase.storage.from_("forum_images").get_public_url(file_path)
+
+                    # 将帖子存入数据库
                     supabase.table("forum").insert({
                         "username": st.session_state['user_name'], 
-                        "content": msg
+                        "content": msg,
+                        "image_url": img_url
                     }).execute()
-                    st.rerun() # 刷新页面显示新消息
+                    st.success("Posted successfully!")
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Post failed: {e}")
 
     st.markdown("---")
 
-    # 2. 消息列表显示
-    st.subheader("Recent Updates")
+    # --- 2. 消息列表显示 (带回复与图片展开) ---
+    st.subheader("Community Feed")
     try:
-        # 从 Supabase 获取最新的 20 条消息
-        response = supabase.table("forum").select("*").order("id", desc=True).limit(20).execute()
-        messages = response.data
+        # 获取帖子列表
+        posts_res = supabase.table("forum").select("*").order("id", desc=True).limit(30).execute()
+        posts = posts_res.data
         
-        if messages:
-            for m in messages:
-                st.markdown(f"""
-                <div style="background: rgba(30, 40, 60, 0.7); padding: 16px; border-radius: 12px; border-left: 5px solid #40e0d0; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-                    <div style="display: flex; justify-content: space-between;">
-                        <strong style="color: #40e0d0; font-size: 1.1rem;">@{m['username']}</strong>
-                        <span style="color: rgba(255,255,255,0.3); font-size: 0.8rem;">{m['created_at'][:16].replace('T', ' ')}</span>
-                    </div>
-                    <p style="margin: 8px 0 0 0; color: #e0e7ff; line-height: 1.5;">{m['content']}</p>
-                </div>
-                """, unsafe_allow_html=True)
+        if posts:
+            for p in posts:
+                # 帖子主体容器
+                with st.container():
+                    # 顶部：用户信息与时间
+                    col_user, col_time = st.columns([1, 1])
+                    col_user.markdown(f"<strong style='color: #40e0d0; font-size: 1.1rem;'>@{p['username']}</strong>", unsafe_allow_html=True)
+                    col_time.markdown(f"<div style='text-align: right; color: gray; font-size: 0.8rem;'>{p['created_at'][:16].replace('T', ' ')}</div>", unsafe_allow_html=True)
+                    
+                    # 内容：文字
+                    if p['content']:
+                        st.markdown(f"<p style='color: #e0e7ff; font-size: 1.05rem; margin: 10px 0;'>{p['content']}</p>", unsafe_allow_html=True)
+                    
+                    # 内容：图片 (如果有图片，显示展开按钮)
+                    if p['image_url']:
+                        with st.expander("🖼️ View Attached Image"):
+                            st.image(p['image_url'], use_container_width=True)
+                    
+                    # --- 回复区 (核心修改：点击展开) ---
+                    # 获取该帖子的回复
+                    replies_res = supabase.table("forum_replies").select("*").eq("post_id", p['id']).order("created_at", asc=True).execute()
+                    replies = replies_res.data
+                    
+                    reply_label = f"💬 {len(replies)} Replies" if replies else "💬 Reply to this"
+                    
+                    with st.expander(reply_label):
+                        # 显示已有回复
+                        for r in replies:
+                            st.markdown(f"""
+                            <div style="background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; border-left: 2px solid #40e0d0;">
+                                <span style="color: #40e0d0; font-weight: bold;">@{r['username']}:</span>
+                                <span style="color: #cbd5e1;">{r['content']}</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        # 发表新回复
+                        with st.form(key=f"reply_form_{p['id']}", clear_on_submit=True):
+                            new_reply = st.text_input("Write a reply...", key=f"input_{p['id']}")
+                            if st.form_submit_button("Reply"):
+                                if new_reply:
+                                    supabase.table("forum_replies").insert({
+                                        "post_id": p['id'],
+                                        "username": st.session_state['user_name'],
+                                        "content": new_reply
+                                    }).execute()
+                                    st.rerun()
+
+                    st.markdown("<hr style='opacity: 0.1; margin: 20px 0;'>", unsafe_allow_html=True)
         else:
-            st.write("No messages yet. Be the first to post!")
+            st.info("The forum is empty. Start the conversation!")
             
     except Exception as e:
-        st.error("Could not load messages. Please check if 'forum' table exists in Supabase.")
+        st.error(f"Could not load posts: {e}")
+
 
 
 
