@@ -1121,63 +1121,44 @@ page = st.session_state['current_page']
 
 # ================= 5. 页面内容 =================
 
+# ================= 5. 页面内容控制 =================
+
+# 获取当前显示的页面名称
+page = st.session_state['current_page']
+
+# --- 页面 A: AI 扫描识别 ---
 if page == "Home (Scan)":
-    # 使用容器增强视觉效果
     with st.container():
         st.title("AI Scan & Learn")
-        st.caption("Upload homework. The AI analyzes mistakes instantly.")
+        st.caption(f"Welcome, {st.session_state['user_name']}! Upload homework to analyze mistakes.")
     
-    # === 布局：垂直分布 (Vertical Layout) ===
-    
-    # 1. 上传区域 (Top) - 卡片式布局
     with st.container():
         st.markdown("### 1. Upload Image")
-        st.markdown("*Drag and drop your image or click to browse*")
-        
         uploaded_file = st.file_uploader("Choose an image...", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
         
         if uploaded_file:
-            # 图片居中显示，带边框和阴影
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
                 st.image(uploaded_file, caption="Uploaded Homework", width=500)
             
-            # 识别按钮
             if st.button("Start AI Analysis", type="primary", use_container_width=True):
                 with st.spinner("AI is analyzing image..."):
                     res = call_ai_ocr(uploaded_file)
                     st.session_state['ocr_result'] = res
                     st.success("Scan Complete!")
 
-    # 分隔线
     st.markdown("---")
 
-    # 2. 结果确认区域 (Bottom) - 卡片式布局
     with st.container():
         st.markdown("### 2. Verify & Process")
-        
         current_text = st.session_state.get('ocr_result', "")
-        
-        # 如果还没有识别结果，给一个占位符提示
-        if not current_text and not uploaded_file:
-            st.info("Please upload an image above to start.")
-        
-        # 文本框永远显示（即使为空）
         user_input = st.text_area(
             "Recognized Equations (Editable)", 
             value=current_text, 
             height=150,
-            placeholder="Waiting for scan result...",
-            help="You can edit the recognized equations here before processing."
+            placeholder="Waiting for scan result..."
         )
         
-        # 显示字符统计
-        if user_input:
-            char_count = len(user_input)
-            line_count = len(user_input.split('\n'))
-            st.caption(f"{char_count} characters, {line_count} lines")
-        
-        # 确认按钮
         if st.button("Confirm & Generate Lessons", use_container_width=True):
             if user_input:
                 with st.spinner("AI is generating learning guide..."):
@@ -1187,10 +1168,11 @@ if page == "Home (Scan)":
                         st.session_state['global_db'] = pd.concat([st.session_state['global_db'], new_df], ignore_index=True)
                         st.success(f"Success! {len(new_data)} equations processed. Check Dashboard.")
                     else:
-                        st.error("No valid equations found. Please check the format.")
+                        st.error("No valid equations found.")
             else:
                 st.warning("Input is empty.")
 
+# --- 页面 B: 数据统计仪表盘 ---
 elif page == "My Dashboard":
     st.title("Learning Dashboard")
     df = st.session_state['global_db']
@@ -1205,93 +1187,81 @@ elif page == "My Dashboard":
             acc = (len(df)-len(wrong_df))/len(df)*100 if len(df) > 0 else 0
             c3.metric("Accuracy", f"{acc:.0f}%")
             top_issue = wrong_df['Error Type'].mode()[0] if not wrong_df.empty else "None"
-            c4.metric("Weak Spot", top_issue, delta="-Priority")
+            c4.metric("Weak Spot", top_issue)
         
         if not wrong_df.empty:
             st.markdown("---")
             chart_data = wrong_df['Error Type'].value_counts().reset_index()
             chart_data.columns = ['Type', 'Count']
-            chart = alt.Chart(chart_data).mark_bar(color='#FF6B6B').encode(x='Count', y=alt.Y('Type', sort='-x')).properties(height=150)
+            chart = alt.Chart(chart_data).mark_bar(color='#40e0d0').encode(x='Count', y=alt.Y('Type', sort='-x')).properties(height=150)
             st.altair_chart(chart, use_container_width=True)
 
         st.markdown("---")
         st.subheader("AI Feedback & Review")
         
         display_df = wrong_df if not wrong_df.empty else df
-        
         for index, row in display_df.iterrows():
-            if row['Status'] == 'Incorrect':
-                with st.container():
-                    c1, c2, c3 = st.columns([0.5, 2, 2])
-                    with c1: st.error("")
-                    with c2: st.markdown(f"**{row['Equation']}**")
-                    with c3: st.caption(f"Correct: {row[Correlif page == "Global Forum":
-    st.title("🌐 Global Discussion Forum")
-    st.caption(f"Logged in as: {st.session_state['user_name']}")
-
-    # --- 发帖区域 ---
-    msg = st.text_input("Post a message to everyone:", placeholder="Ask a question...")
-    if st.button("Send to All", type="primary"):
-        if msg:
-            supabase.table("forum").insert({
-                "username": st.session_state['user_name'], 
-                "content": msg
-            }).execute()
-            st.rerun()
-
-    st.markdown("---")
-
-    # --- 显示实时消息 ---
-    messages = supabase.table("forum").select("*").order("id", desc=True).limit(20).execute()
-    
-    for m in messages.data:
-        # 使用你原本定义的样式，让它看起来更统一
-        st.markdown(f"""
-        <div style="background: rgba(30, 40, 60, 0.6); padding: 15px; border-radius: 12px; border-left: 5px solid #40e0d0; margin-bottom: 15px;">
-            <strong style="color: #40e0d0;">@{m['username']}</strong>
-            <p style="margin: 5px 0; color: #e0e7ff; font-size: 1.1rem;">{m['content']}</p>
-            <small style="color: rgba(64, 224, 208, 0.5);">{m['created_at'][:16]}</small>
-        </div>
-        """, unsafe_allow_html=True)ect Answer']}")
-                    
-                    with st.expander(f"AI Analysis for {row['Equation']}"):
+            with st.container():
+                c1, c2, c3 = st.columns([0.5, 2, 2])
+                with c1: 
+                    if row['Status'] == 'Incorrect': st.error("✘")
+                    else: st.success("✔")
+                with c2: st.markdown(f"**{row['Equation']}**")
+                with c3: st.caption(f"Correct Answer: {row['Correct Answer']}")
+                
+                if row['Status'] == 'Incorrect':
+                    with st.expander(f"See AI Analysis"):
                         st.info(f"**Explanation:**\n{row['Explanation']}")
-                        
-                st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
+            st.markdown("<hr style='opacity:0.1'>", unsafe_allow_html=True)
     else:
-        st.info("No data available yet.")
+        st.info("No data available. Go to Scan page first.")
 
-# --- 注意：下面这一行 elif 必须和最上面的 if page == "Home (Scan)" 对齐 ---
+# --- 页面 C: 全局联网论坛 (跨设备交互) ---
 elif page == "Global Forum":
     st.title("🌐 Global Discussion Forum")
-    st.caption(f"Logged in as: {st.session_state['user_name']}")
+    st.caption(f"Share insights with other students. Logged in as: {st.session_state['user_name']}")
 
-    # --- 发帖区域 ---
+    # 1. 发帖输入框
     with st.container():
-        msg = st.text_input("Post a message to everyone:", placeholder="Ask a question...", key="forum_input")
-        if st.button("Send to All", type="primary"):
+        msg = st.text_input("Post a message to the community:", placeholder="Type your message here...", key="forum_msg_input")
+        if st.button("Post Message", type="primary"):
             if msg:
-                supabase.table("forum").insert({
-                    "username": st.session_state['user_name'], 
-                    "content": msg
-                }).execute()
-                st.rerun()
+                try:
+                    # 将消息插入到 Supabase 云端数据库
+                    supabase.table("forum").insert({
+                        "username": st.session_state['user_name'], 
+                        "content": msg
+                    }).execute()
+                    st.rerun() # 刷新页面显示新消息
+                except Exception as e:
+                    st.error(f"Post failed: {e}")
 
     st.markdown("---")
 
-    # --- 显示实时消息 ---
+    # 2. 消息列表显示
+    st.subheader("Recent Updates")
     try:
-        messages = supabase.table("forum").select("*").order("id", desc=True).limit(20).execute()
-        for m in messages.data:
-            st.markdown(f"""
-            <div style="background: rgba(30, 40, 60, 0.6); padding: 15px; border-radius: 12px; border-left: 5px solid #40e0d0; margin-bottom: 15px;">
-                <strong style="color: #40e0d0;">@{m['username']}</strong>
-                <p style="margin: 5px 0; color: #e0e7ff; font-size: 1.1rem;">{m['content']}</p>
-                <small style="color: rgba(64, 224, 208, 0.5);">{m['created_at'][:16]}</small>
-            </div>
-            """, unsafe_allow_html=True)
+        # 从 Supabase 获取最新的 20 条消息
+        response = supabase.table("forum").select("*").order("id", desc=True).limit(20).execute()
+        messages = response.data
+        
+        if messages:
+            for m in messages:
+                st.markdown(f"""
+                <div style="background: rgba(30, 40, 60, 0.7); padding: 16px; border-radius: 12px; border-left: 5px solid #40e0d0; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong style="color: #40e0d0; font-size: 1.1rem;">@{m['username']}</strong>
+                        <span style="color: rgba(255,255,255,0.3); font-size: 0.8rem;">{m['created_at'][:16].replace('T', ' ')}</span>
+                    </div>
+                    <p style="margin: 8px 0 0 0; color: #e0e7ff; line-height: 1.5;">{m['content']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.write("No messages yet. Be the first to post!")
+            
     except Exception as e:
-        st.error("Connect to forum failed. Did you run the SQL in Supabase?")
+        st.error("Could not load messages. Please check if 'forum' table exists in Supabase.")
+
 
 
 
