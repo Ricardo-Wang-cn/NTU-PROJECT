@@ -177,8 +177,6 @@ with st.sidebar:
     
     st.success("🟢 AI: Online")
     
-    use_simulation = st.checkbox("Simulation Mode", value=False)
-    
     st.markdown("---")
     if st.button("Reset Data", type="secondary"):
         st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
@@ -264,4 +262,5 @@ elif page == "My Dashboard":
                 st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
     else:
         st.info("No data yet.")
+
 
