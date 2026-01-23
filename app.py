@@ -916,25 +916,28 @@ def call_ai_ocr(uploaded_file):
     try:
         base64_image = encode_image(uploaded_file)
         completion = client.chat.completions.create(
-            model="qwen3-omni-flash",
+            model="qwen3-omni-flash", # 或者你当前使用的模型
             messages=[
                 {
                     "role": "system", 
-                    "content": """你是一个高级数学老师。请识别图像中的所有数学题。
-                    对于每一道题，请按照以下严格格式输出，每行一题：
+                    "content": """你是一个数学判卷老师。请识别图像中的所有数学题。
+                    每行输出一道题，必须严格遵守以下格式：
                     题目 | 学生写的答案 | 正确答案
+                    
                     注意：
                     1. 如果学生没写答案，'学生写的答案'处填 'None'。
-                    2. 复杂公式（如根号、积分、分数）请使用简单的文本描述或标准数学表示法。
-                    3. 务必确保你给出的'正确答案'是经过精确计算的。
-                    例如：integrate(x) | x^2 | 0.5*x^2 + C
-                    例如：sqrt(16) | 5 | 4
+                    2. 无论多复杂的符号（根号、积分、特殊字符），请原样保留。
+                    3. 你要负责计算出正确答案，不要依赖外部工具。
+                    例子：
+                    √9 ÷ 3 | 2 | 1
+                    ∫x dx | 0.5x^2 | 0.5x^2 + C
+                    24 x 2 | 48 | 48
                     """
                 },
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Extract and solve all math problems from this image:"},
+                        {"type": "text", "text": "Extract and check all math problems from this image:"},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
                     ],
                 }
@@ -978,7 +981,9 @@ def parse_and_solve(text_block):
     lines = text_block.split('\n')
     
     for line in lines:
-        if '|' not in line: continue
+        line = line.strip()
+        if '|' not in line: continue  # 必须包含分隔符
+        
         parts = line.split('|')
         if len(parts) != 3: continue
         
@@ -986,38 +991,33 @@ def parse_and_solve(text_block):
         student_ans = parts[1].strip()
         correct_ans = parts[2].strip()
         
-        # 逻辑判断：如果学生答案是 None，标记为 Incorrect（未完成）
-        # 如果有答案，通过 AI 逻辑比对（支持字符串比对，解决符号问题）
-        if student_ans.lower() == 'none':
-            is_right = False
-            status = "Unfinished"
-        else:
-            # 简单的相等判断，对于复杂符号，AI 已经在生成时做了标准化
-            is_right = (student_ans.replace(" ", "") == correct_ans.replace(" ", ""))
-            status = "Correct" if is_right else "Incorrect"
-
-        # 判断错误类型
+        # 逻辑判断：交给字符串对比
+        # 如果学生答案和正确答案去掉空格后一致，则正确
+        is_right = (student_ans.replace(" ", "") == correct_ans.replace(" ", ""))
+        
+        # 确定错误类型 (仅用于 Dashboard 打标签)
         err_type = "Concept Error"
-        if any(op in problem for op in ['sqrt', 'root', '√']): err_type = "Roots"
-        elif 'int' in problem or '∫' in problem: err_type = "Calculus"
-        elif '^' in problem: err_type = "Exponents"
-        elif any(op in problem for op in ['+', '-', '*', '/']): err_type = "Arithmetic"
+        if any(op in problem for op in ['√', 'sqrt', 'root']): err_type = "Roots"
+        elif any(op in problem for op in ['∫', 'int']): err_type = "Calculus"
+        elif any(op in problem for op in ['+', '-', '×', '÷', '*', '/']): err_type = "Arithmetic"
 
-        explanation = "Great job!"
+        explanation = "Perfect!"
         if not is_right:
+            # 只有做错时，才调用第二次 AI 生成讲解，节省资源
             explanation = get_ai_explanation(problem, student_ans, correct_ans)
-            
+        
         results.append({
             'Equation': problem,
             'User Answer': student_ans,
             'Correct Answer': correct_ans,
-            'Status': status,
+            'Status': "Correct" if is_right else "Incorrect",
             'Error Type': "None" if is_right else err_type,
             'Timestamp': timestamp,
             'Explanation': explanation
         })
+        
     return results
-
+    
 # ================= 4. 侧边栏 (纯净版) =================
 # ================= 4. 侧边栏 (导航与系统控制) =================
 with st.sidebar:
@@ -1250,6 +1250,7 @@ elif page == "Global Forum":
             st.markdown("---")
     except Exception as e:
         st.error(f"Error loading feed: {e}")
+
 
 
 
