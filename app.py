@@ -1261,6 +1261,39 @@ elif page == "My Dashboard":
     else:
         st.info("No data available yet.")
 
+# --- 注意：下面这一行 elif 必须和最上面的 if page == "Home (Scan)" 对齐 ---
+elif page == "Global Forum":
+    st.title("🌐 Global Discussion Forum")
+    st.caption(f"Logged in as: {st.session_state['user_name']}")
+
+    # --- 发帖区域 ---
+    with st.container():
+        msg = st.text_input("Post a message to everyone:", placeholder="Ask a question...", key="forum_input")
+        if st.button("Send to All", type="primary"):
+            if msg:
+                supabase.table("forum").insert({
+                    "username": st.session_state['user_name'], 
+                    "content": msg
+                }).execute()
+                st.rerun()
+
+    st.markdown("---")
+
+    # --- 显示实时消息 ---
+    try:
+        messages = supabase.table("forum").select("*").order("id", desc=True).limit(20).execute()
+        for m in messages.data:
+            st.markdown(f"""
+            <div style="background: rgba(30, 40, 60, 0.6); padding: 15px; border-radius: 12px; border-left: 5px solid #40e0d0; margin-bottom: 15px;">
+                <strong style="color: #40e0d0;">@{m['username']}</strong>
+                <p style="margin: 5px 0; color: #e0e7ff; font-size: 1.1rem;">{m['content']}</p>
+                <small style="color: rgba(64, 224, 208, 0.5);">{m['created_at'][:16]}</small>
+            </div>
+            """, unsafe_allow_html=True)
+    except Exception as e:
+        st.error("Connect to forum failed. Did you run the SQL in Supabase?")
+
+
 
 
 
