@@ -175,7 +175,7 @@ with st.sidebar:
     page = st.radio("Menu", ["Home (Scan)", "My Dashboard"], label_visibility="collapsed")
     st.markdown("---")
     
-    st.success("🟢 Qwen3 Omni: Online")
+    st.success("🟢 AI: Online")
     
     use_simulation = st.checkbox("Simulation Mode", value=False)
     
@@ -187,7 +187,7 @@ with st.sidebar:
 # ================= 5. 页面内容 =================
 
 if page == "Home (Scan)":
-    st.title("📸 AI Scan (Qwen-Powered)")
+    st.title("📸 AI Scan ")
     st.caption("Now supports: ( ), +, -, x, ÷")
     
     col1, col2 = st.columns([1, 1])
@@ -264,3 +264,4 @@ elif page == "My Dashboard":
                 st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
     else:
         st.info("No data yet.")
+
