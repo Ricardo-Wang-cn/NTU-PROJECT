@@ -1225,7 +1225,7 @@ elif page == "My Dashboard":
                     c1, c2, c3 = st.columns([0.5, 2, 2])
                     with c1: st.error("")
                     with c2: st.markdown(f"**{row['Equation']}**")
-                    with c3: st.caption(f"Correct: {row['Correlif page == "Global Forum":
+                    with c3: st.caption(f"Correct: {row[Correlif page == "Global Forum":
     st.title("🌐 Global Discussion Forum")
     st.caption(f"Logged in as: {st.session_state['user_name']}")
 
@@ -1260,6 +1260,7 @@ elif page == "My Dashboard":
                 st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
     else:
         st.info("No data available yet.")
+
 
 
 
