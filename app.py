@@ -920,12 +920,21 @@ def call_ai_ocr(uploaded_file):
             messages=[
                 {
                     "role": "system", 
-                    "content": "Identify all math equations. Return ONLY the equations, one per line. Format example: '3 * (2 + 3) = 15'. Keep parentheses '()' if they exist. Convert x/X to *. Convert ÷ to /."
+                    "content": """你是一个高级数学老师。请识别图像中的所有数学题。
+                    对于每一道题，请按照以下严格格式输出，每行一题：
+                    题目 | 学生写的答案 | 正确答案
+                    注意：
+                    1. 如果学生没写答案，'学生写的答案'处填 'None'。
+                    2. 复杂公式（如根号、积分、分数）请使用简单的文本描述或标准数学表示法。
+                    3. 务必确保你给出的'正确答案'是经过精确计算的。
+                    例如：integrate(x) | x^2 | 0.5*x^2 + C
+                    例如：sqrt(16) | 5 | 4
+                    """
                 },
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Extract math equations from this image:"},
+                        {"type": "text", "text": "Extract and solve all math problems from this image:"},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
                     ],
                 }
@@ -964,128 +973,49 @@ if 'global_db' not in st.session_state:
     st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
 
 def parse_and_solve(text_block):
-    # 统一替换所有可能的符号
-    text_block = text_block.replace('÷', '/').replace('x', '*').replace('X', '*')
-    text_block = text_block.replace('×', '*')  # 也处理×符号
-    text_block = text_block.replace('（', '(').replace('）', ')')
-    
     results = []
     timestamp = pd.Timestamp.now().strftime("%H:%M")
-    
     lines = text_block.split('\n')
-    progress_bar = st.progress(0)
-    total_lines = len(lines)
-    processed_count = 0
     
     for line in lines:
-        line = line.strip()
-        if not line:
-            processed_count += 1
-            if total_lines > 0:
-                progress_bar.progress(min(processed_count / total_lines, 1.0))
-            continue
-            
-        # 检查是否包含等号
-        if '=' not in line:
-            processed_count += 1
-            if total_lines > 0:
-                progress_bar.progress(min(processed_count / total_lines, 1.0))
-            continue
-            
-        # 分割等号
-        parts = line.split('=', 1) 
-        if len(parts) != 2: 
-            processed_count += 1
-            if total_lines > 0:
-                progress_bar.progress(min(processed_count / total_lines, 1.0))
-            continue
-            
-        lhs_str = parts[0].strip()
-        rhs_str = parts[1].strip()
+        if '|' not in line: continue
+        parts = line.split('|')
+        if len(parts) != 3: continue
         
-        # 移除左侧表达式中的所有空格
-        lhs_str = lhs_str.replace(' ', '').replace('\t', '')
+        problem = parts[0].strip()
+        student_ans = parts[1].strip()
+        correct_ans = parts[2].strip()
         
-        # 如果左侧为空，跳过
-        if not lhs_str:
-            processed_count += 1
-            if total_lines > 0:
-                progress_bar.progress(min(processed_count / total_lines, 1.0))
-            continue
-        
-        # 验证左侧表达式：只允许数字、运算符和括号
-        # 使用更简单的正则表达式，-号放在字符类末尾
-        if not re.match(r'^[0-9+\-*/\.()]+$', lhs_str):
-            processed_count += 1
-            if total_lines > 0:
-                progress_bar.progress(min(processed_count / total_lines, 1.0))
-            continue
-        
-        # 验证右侧是否为有效数字
-        try:
-            user_ans = float(rhs_str.strip())
-        except (ValueError, TypeError):
-            processed_count += 1
-            if total_lines > 0:
-                progress_bar.progress(min(processed_count / total_lines, 1.0))
-            continue
-            
-        # 计算左侧表达式
-        try:
-            correct_ans = eval(lhs_str)
-            # 确保结果是数字
-            if not isinstance(correct_ans, (int, float)):
-                processed_count += 1
-                if total_lines > 0:
-                    progress_bar.progress(min(processed_count / total_lines, 1.0))
-                continue
-        except (SyntaxError, NameError, TypeError, ZeroDivisionError) as e:
-            # 如果计算出错，跳过这一行
-            processed_count += 1
-            if total_lines > 0:
-                progress_bar.progress(min(processed_count / total_lines, 1.0))
-            continue
-        
-        # 判断是否正确
-        is_right = abs(correct_ans - user_ans) < 0.01
-        
+        # 逻辑判断：如果学生答案是 None，标记为 Incorrect（未完成）
+        # 如果有答案，通过 AI 逻辑比对（支持字符串比对，解决符号问题）
+        if student_ans.lower() == 'none':
+            is_right = False
+            status = "Unfinished"
+        else:
+            # 简单的相等判断，对于复杂符号，AI 已经在生成时做了标准化
+            is_right = (student_ans.replace(" ", "") == correct_ans.replace(" ", ""))
+            status = "Correct" if is_right else "Incorrect"
+
         # 判断错误类型
-        err_type = "Mixed Ops"
-        if '(' in lhs_str: 
-            err_type = "Parentheses Priority"
-        elif '+' in lhs_str and '*' not in lhs_str and '/' not in lhs_str: 
-            err_type = "Addition"
-        elif '-' in lhs_str and '*' not in lhs_str and '/' not in lhs_str and '+' not in lhs_str: 
-            err_type = "Subtraction"
-        elif '*' in lhs_str: 
-            err_type = "Multiplication"
-        elif '/' in lhs_str: 
-            err_type = "Division"
-        
-        # 显示用的方程（转换回×和÷）
-        display_eq = lhs_str.replace('*', '×').replace('/', '÷')
-        
-        # 生成解释
-        explanation = "Correct!"
+        err_type = "Concept Error"
+        if any(op in problem for op in ['sqrt', 'root', '√']): err_type = "Roots"
+        elif 'int' in problem or '∫' in problem: err_type = "Calculus"
+        elif '^' in problem: err_type = "Exponents"
+        elif any(op in problem for op in ['+', '-', '*', '/']): err_type = "Arithmetic"
+
+        explanation = "Great job!"
         if not is_right:
-            explanation = get_ai_explanation(display_eq, user_ans, correct_ans)
-        
-        # 添加到结果
+            explanation = get_ai_explanation(problem, student_ans, correct_ans)
+            
         results.append({
-            'Equation': display_eq,
-            'User Answer': int(user_ans) if isinstance(user_ans, float) and user_ans.is_integer() else user_ans,
-            'Correct Answer': int(correct_ans) if isinstance(correct_ans, float) and correct_ans.is_integer() else (int(correct_ans) if isinstance(correct_ans, int) else correct_ans),
-            'Status': "Correct" if is_right else "Incorrect",
+            'Equation': problem,
+            'User Answer': student_ans,
+            'Correct Answer': correct_ans,
+            'Status': status,
             'Error Type': "None" if is_right else err_type,
             'Timestamp': timestamp,
             'Explanation': explanation
         })
-        
-        processed_count += 1
-        if total_lines > 0:
-            progress_bar.progress(min(processed_count / total_lines, 1.0))
-            
-    progress_bar.empty()
     return results
 
 # ================= 4. 侧边栏 (纯净版) =================
@@ -1162,8 +1092,10 @@ page = st.session_state['current_page']
 # --- 页面 A: AI 扫描识别 ---
 if page == "Home (Scan)":
     with st.container():
-        st.title("AI Scan & Learn")
-        st.caption(f"Welcome, {st.session_state['user_name']}! Upload homework to analyze mistakes.")
+        st.title("🚀 Advanced AI Math Scanner")
+        st.caption(f"Welcome, {st.session_state['user_name']}! Now supporting Arithmetic, Roots, Calculus, and more.")
+    
+    # ... 其余上传逻辑保持不变 ...
     
     with st.container():
         st.markdown("### 1. Upload Image")
@@ -1318,6 +1250,7 @@ elif page == "Global Forum":
             st.markdown("---")
     except Exception as e:
         st.error(f"Error loading feed: {e}")
+
 
 
 
