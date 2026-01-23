@@ -920,12 +920,27 @@ def call_ai_ocr(uploaded_file):
             messages=[
                 {
                     "role": "system", 
-                    "content": "你是一个高精度的数学 OCR。请提取图片中的所有数学等式，原样输出。每行一个等式。例如：√9 ÷ 3 = 2"
+                    "content": """你是一个高精度的数学 OCR。请提取图片中的所有数学等式。
+                    
+                    【严格执行指令】：
+                    1. 禁止使用 LaTeX 格式（禁止出现 $ 符号，禁止出现 \sqrt, \div, \frac 等代码）。
+                    2. 必须使用普通的数学符号：
+                       - 根号用 √
+                       - 除号用 ÷
+                       - 乘号用 ×
+                       - 平方用 ^2
+                    3. 原样输出等式，每行一个。
+                    
+                    例子：
+                    图片：√9 ÷ 3 = 2
+                    正确输出：√9 ÷ 3 = 2
+                    错误输出：$\sqrt{9} \div 3 = 2$
+                    """
                 },
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Extract all math equations from this image:"},
+                        {"type": "text", "text": "Extract all math equations from this image using plain text symbols:"},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
                     ],
                 }
@@ -935,7 +950,7 @@ def call_ai_ocr(uploaded_file):
         return completion.choices[0].message.content
     except Exception as e:
         return f"AI Error: {str(e)}"
-
+        
 # --- 功能 B: 生成错题讲解 (AI Tutor) ---
 def get_ai_explanation(equation_str, user_ans, correct_ans):
     try:
@@ -1269,6 +1284,7 @@ elif page == "Global Forum":
             st.markdown("---")
     except Exception as e:
         st.error(f"Error loading feed: {e}")
+
 
 
 
