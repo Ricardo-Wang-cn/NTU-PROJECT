@@ -13,6 +13,19 @@ import altair as alt
 import base64
 from openai import OpenAI
 
+# --- 必须放在最前面的初始化代码 ---
+if 'current_page' not in st.session_state:
+    st.session_state['current_page'] = "Home (Scan)"
+
+if 'global_db' not in st.session_state:
+    st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
+
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
+
+if 'user_name' not in st.session_state:
+    st.session_state['user_name'] = ""
+
 # 初始化登录状态
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
@@ -1076,50 +1089,70 @@ def parse_and_solve(text_block):
     return results
 
 # ================= 4. 侧边栏 (纯净版) =================
+# ================= 4. 侧边栏 (导航与系统控制) =================
 with st.sidebar:
+    # --- 1. 顶部图标 ---
     st.image("https://cdn-icons-png.flaticon.com/512/2997/2997235.png", width=60)
     
-    # 初始化页面状态
-
-    # 找到你侧边栏导航按钮的位置，添加这一段：
-    if st.button("Global Forum", type="secondary" if st.session_state['current_page'] != "Global Forum" else "primary", use_container_width=True):
-        st.session_state['current_page'] = "Global Forum"
-        st.rerun()
-    
+    # --- 2. 重要：必须先初始化变量，才能在下面的按钮中使用 ---
     if 'current_page' not in st.session_state:
         st.session_state['current_page'] = "Home (Scan)"
     
-    # 导航菜单 - 使用按钮替代radio
-    if st.button("Home (Scan)", type="secondary" if st.session_state['current_page'] != "Home (Scan)" else "primary", use_container_width=True):
+    # 显示当前登录的用户
+    st.markdown(f"👤 **User:** {st.session_state.get('user_name', 'Guest')}")
+    st.markdown("---")
+
+    # --- 3. 导航菜单 (Home / Dashboard / Forum) ---
+    # 首页扫描
+    if st.button("🏠 Home (Scan)", 
+                 type="primary" if st.session_state['current_page'] == "Home (Scan)" else "secondary", 
+                 use_container_width=True):
         st.session_state['current_page'] = "Home (Scan)"
         st.rerun()
     
-    if st.button("My Dashboard", type="secondary" if st.session_state['current_page'] != "My Dashboard" else "primary", use_container_width=True):
+    # 学习看板
+    if st.button("📊 My Dashboard", 
+                 type="primary" if st.session_state['current_page'] == "My Dashboard" else "secondary", 
+                 use_container_width=True):
         st.session_state['current_page'] = "My Dashboard"
+        st.rerun()
+    
+    # 全局论坛 (联网功能)
+    if st.button("🌐 Global Forum", 
+                 type="primary" if st.session_state['current_page'] == "Global Forum" else "secondary", 
+                 use_container_width=True):
+        st.session_state['current_page'] = "Global Forum"
         st.rerun()
     
     st.markdown("---")
     
-    # 主题切换按钮
-    theme_text = "Light Mode" if st.session_state['theme'] == 'dark' else "Dark Mode"
+    # --- 4. 系统设置 (主题/状态) ---
+    
+    # 主题切换
+    theme_text = "☀️ Light Mode" if st.session_state['theme'] == 'dark' else "🌙 Dark Mode"
     if st.button(f"{theme_text}", type="secondary", use_container_width=True):
         st.session_state['theme'] = 'light' if st.session_state['theme'] == 'dark' else 'dark'
         st.rerun()
     
     st.markdown("---")
-    
-    # 移除了所有 Simulation Mode 和 Qwen 字样
     st.success("🟢 AI System: Online")
     
+    # 退出登录按钮 (新增：方便切换账号)
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state['logged_in'] = False
+        st.session_state['user_name'] = ""
+        st.rerun()
+
     st.markdown("---")
-    if st.button("Reset All Data", type="secondary"):
+    
+    # 重置本地临时数据
+    if st.button("🗑️ Reset Local Data", type="secondary", help="Only clears current session data"):
         st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
         st.rerun()
 
-# 获取当前页面
+# --- 5. 获取当前页面名称，供下方逻辑使用 ---
 page = st.session_state['current_page']
 
-# ================= 5. 页面内容 =================
 
 # ================= 5. 页面内容控制 =================
 
@@ -1261,6 +1294,7 @@ elif page == "Global Forum":
             
     except Exception as e:
         st.error("Could not load messages. Please check if 'forum' table exists in Supabase.")
+
 
 
 
