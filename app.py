@@ -916,28 +916,16 @@ def call_ai_ocr(uploaded_file):
     try:
         base64_image = encode_image(uploaded_file)
         completion = client.chat.completions.create(
-            model="qwen3-omni-flash", # 或者你当前使用的模型
+            model="qwen3-omni-flash",
             messages=[
                 {
                     "role": "system", 
-                    "content": """你是一个数学判卷老师。请识别图像中的所有数学题。
-                    每行输出一道题，必须严格遵守以下格式：
-                    题目 | 学生写的答案 | 正确答案
-                    
-                    注意：
-                    1. 如果学生没写答案，'学生写的答案'处填 'None'。
-                    2. 无论多复杂的符号（根号、积分、特殊字符），请原样保留。
-                    3. 你要负责计算出正确答案，不要依赖外部工具。
-                    例子：
-                    √9 ÷ 3 | 2 | 1
-                    ∫x dx | 0.5x^2 | 0.5x^2 + C
-                    24 x 2 | 48 | 48
-                    """
+                    "content": "你是一个高精度的数学 OCR。请提取图片中的所有数学等式，原样输出。每行一个等式。例如：√9 ÷ 3 = 2"
                 },
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Extract and check all math problems from this image:"},
+                        {"type": "text", "text": "Extract all math equations from this image:"},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
                     ],
                 }
@@ -975,47 +963,78 @@ def get_ai_explanation(equation_str, user_ans, correct_ans):
 if 'global_db' not in st.session_state:
     st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
 
+def get_correct_answer_from_ai(problem_str):
+    """专门调用 AI 获取复杂数学题的标准答案"""
+    try:
+        response = client.chat.completions.create(
+            model="qwen3-omni-flash",
+            messages=[
+                {"role": "system", "content": "你是一个数学计算器。只返回算式的最终结果（数字或最简表达式），不要任何文字解释。"},
+                {"role": "user", "content": f"算出这个算式的结果: {problem_str}"}
+            ],
+            stream=False
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return "Error"
+
 def parse_and_solve(text_block):
     results = []
     timestamp = pd.Timestamp.now().strftime("%H:%M")
+    
+    # 将文本按行拆分
     lines = text_block.split('\n')
     
-    for line in lines:
-        line = line.strip()
-        if '|' not in line: continue  # 必须包含分隔符
+    # 过滤掉空行
+    valid_lines = [l.strip() for l in lines if l.strip()]
+    if not valid_lines:
+        return []
+
+    # 进度提示
+    progress_bar = st.progress(0)
+    total = len(valid_lines)
+    
+    for i, line in enumerate(valid_lines):
+        # 1. 拆分等号：例如将 "√9 ÷ 3 = 2" 拆分为 "√9 ÷ 3" 和 "2"
+        if '=' in line:
+            parts = line.split('=', 1)
+            problem_side = parts[0].strip()   # 题目：√9 ÷ 3
+            student_ans = parts[1].strip()    # 学生的答案：2
+        else:
+            problem_side = line
+            student_ans = "None"
+
+        # 2. 调用后台 AI 算出这道题真正的答案
+        correct_ans = get_correct_answer_from_ai(problem_side)
         
-        parts = line.split('|')
-        if len(parts) != 3: continue
-        
-        problem = parts[0].strip()
-        student_ans = parts[1].strip()
-        correct_ans = parts[2].strip()
-        
-        # 逻辑判断：交给字符串对比
-        # 如果学生答案和正确答案去掉空格后一致，则正确
+        # 3. 结果判定 (去掉空格后进行字符串比对)
         is_right = (student_ans.replace(" ", "") == correct_ans.replace(" ", ""))
         
-        # 确定错误类型 (仅用于 Dashboard 打标签)
-        err_type = "Concept Error"
-        if any(op in problem for op in ['√', 'sqrt', 'root']): err_type = "Roots"
-        elif any(op in problem for op in ['∫', 'int']): err_type = "Calculus"
-        elif any(op in problem for op in ['+', '-', '×', '÷', '*', '/']): err_type = "Arithmetic"
+        # 4. 自动识别错误类型 (为了 Dashboard 的图表)
+        err_type = "Arithmetic"
+        if '√' in problem_side or 'sqrt' in problem_side: 
+            err_type = "Roots"
+        elif '∫' in problem_side or 'int' in problem_side: 
+            err_type = "Calculus"
+        elif '^' in problem_side:
+            err_type = "Exponents"
 
-        explanation = "Perfect!"
-        if not is_right:
-            # 只有做错时，才调用第二次 AI 生成讲解，节省资源
-            explanation = get_ai_explanation(problem, student_ans, correct_ans)
-        
+        # 5. 生成结果字典
         results.append({
-            'Equation': problem,
+            'Equation': problem_side,
             'User Answer': student_ans,
             'Correct Answer': correct_ans,
             'Status': "Correct" if is_right else "Incorrect",
             'Error Type': "None" if is_right else err_type,
             'Timestamp': timestamp,
-            'Explanation': explanation
+            'Explanation': "Perfect!" if is_right else get_ai_explanation(problem_side, student_ans, correct_ans)
         })
         
+        # 更新进度条
+        progress_bar.progress((i + 1) / total)
+    
+    # 完成后清除进度条
+    progress_bar.empty()
     return results
     
 # ================= 4. 侧边栏 (纯净版) =================
@@ -1250,6 +1269,7 @@ elif page == "Global Forum":
             st.markdown("---")
     except Exception as e:
         st.error(f"Error loading feed: {e}")
+
 
 
 
