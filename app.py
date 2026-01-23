@@ -7,14 +7,16 @@ from openai import OpenAI
 
 # ================= 1. UI 配置 =================
 st.set_page_config(
-    page_title="Mistake-Driven Learning (Final)", 
-    page_icon="🧠", 
-    layout="wide"
+    page_title="Mistake-Driven Learning", 
+    page_icon="🎓", 
+    layout="wide" 
 )
 
 st.markdown("""
 <style>
     .stApp { background-color: #f8f9fa; }
+    
+    /* 卡片容器样式 */
     div[data-testid="metric-container"] {
         background-color: white;
         border: 1px solid #e0e0e0;
@@ -22,15 +24,24 @@ st.markdown("""
         border-radius: 12px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
+    
+    /* 侧边栏样式 */
     section[data-testid="stSidebar"] {
         background-color: #ffffff;
         border-right: 1px solid #e5e7eb;
     }
+    
+    /* 字体优化 */
     h1, h2, h3 { font-family: 'Inter', sans-serif; color: #2d3748; }
+    
+    /* 上传组件优化 */
+    div[data-testid="stFileUploader"] {
+        margin-bottom: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ================= 2. Qwen3 API 配置 (内置 Key) =================
+# ================= 2. API 配置 (内置 Key) =================
 
 QWEN_API_KEY = "sk-9b1d3f982246432b9ef1f624572c418e"
 QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -41,10 +52,9 @@ client = OpenAI(api_key=QWEN_API_KEY, base_url=QWEN_BASE_URL)
 def encode_image(uploaded_file):
     return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
 
-def call_qwen_ocr(uploaded_file):
+def call_ai_ocr(uploaded_file):
     try:
         base64_image = encode_image(uploaded_file)
-        # === 修复点 1: 提示词明确要求保留括号 ===
         completion = client.chat.completions.create(
             model="qwen3-omni-flash",
             messages=[
@@ -64,11 +74,10 @@ def call_qwen_ocr(uploaded_file):
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"OCR Error: {str(e)}"
+        return f"AI Error: {str(e)}"
 
 # --- 功能 B: 生成错题讲解 (AI Tutor) ---
-def get_qwen_explanation(equation_str, user_ans, correct_ans):
-    """针对错题生成简短讲解"""
+def get_ai_explanation(equation_str, user_ans, correct_ans):
     try:
         prompt = f"""
         The student answered '{equation_str} = {user_ans}', which is WRONG. 
@@ -89,15 +98,14 @@ def get_qwen_explanation(equation_str, user_ans, correct_ans):
     except:
         return "Check calculation steps."
 
-# ================= 3. 数据处理逻辑 (核心修复) =================
+# ================= 3. 数据处理逻辑 =================
 
 if 'global_db' not in st.session_state:
     st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
 
 def parse_and_solve(text_block):
-    # 1. 全局清洗
     text_block = text_block.replace('÷', '/').replace('x', '*').replace('X', '*')
-    text_block = text_block.replace('（', '(').replace('）', ')') # 兼容中文括号
+    text_block = text_block.replace('（', '(').replace('）', ')')
     
     results = []
     timestamp = pd.Timestamp.now().strftime("%H:%M")
@@ -118,26 +126,22 @@ def parse_and_solve(text_block):
             processed_count += 1
             continue
             
-        lhs_str = parts[0].strip() # 题目
-        rhs_str = parts[1].strip() # 用户答案
+        lhs_str = parts[0].strip()
+        rhs_str = parts[1].strip()
         
-        # === 修复点 2: 正则允许括号 () ===
-        # 原来是 r'^[\d\s\+\-\*\/\.]+$'，现在加入了 \( 和 \)
+        # 允许数字、运算符号、括号
         if not re.match(r'^[\d\s\+\-\*\/\.\(\)]+$', lhs_str):
-            print(f"Invalid characters in: {lhs_str}")
             processed_count += 1
             continue
             
         try:
-            # 智能计算
             correct_ans = eval(lhs_str) 
             user_ans = float(rhs_str)
             
             is_right = abs(correct_ans - user_ans) < 0.01
             
-            # 判定类型
             err_type = "Mixed Ops"
-            if '(' in lhs_str: err_type = "Parentheses Priority" # 识别括号错误
+            if '(' in lhs_str: err_type = "Parentheses Priority"
             elif '+' in lhs_str and '*' not in lhs_str: err_type = "Addition"
             elif '-' in lhs_str: err_type = "Subtraction"
             elif '*' in lhs_str: err_type = "Multiplication"
@@ -147,7 +151,7 @@ def parse_and_solve(text_block):
             
             explanation = "Correct!"
             if not is_right:
-                explanation = get_qwen_explanation(display_eq, user_ans, correct_ans)
+                explanation = get_ai_explanation(display_eq, user_ans, correct_ans)
             
             results.append({
                 'Equation': display_eq,
@@ -169,56 +173,81 @@ def parse_and_solve(text_block):
     progress_bar.empty()
     return results
 
-# ================= 4. 侧边栏 =================
+# ================= 4. 侧边栏 (纯净版) =================
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2997/2997235.png", width=60)
+    
+    # 导航菜单
     page = st.radio("Menu", ["Home (Scan)", "My Dashboard"], label_visibility="collapsed")
-    st.markdown("---")
-    
-    st.success("🟢 AI: Online")
     
     st.markdown("---")
-    if st.button("Reset Data", type="secondary"):
+    
+    # 移除了所有 Simulation Mode 和 Qwen 字样
+    st.success("🟢 AI System: Online")
+    
+    st.markdown("---")
+    if st.button("Reset All Data", type="secondary"):
         st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
         st.rerun()
 
 # ================= 5. 页面内容 =================
 
 if page == "Home (Scan)":
-    st.title("📸 AI Scan ")
-    st.caption("Now supports: ( ), +, -, x, ÷")
+    st.title("📸 AI Scan & Learn")
+    st.caption("Upload homework. The AI analyzes mistakes instantly.")
     
-    col1, col2 = st.columns([1, 1])
+    # === 布局：垂直分布 (Vertical Layout) ===
     
-    with col1:
-        uploaded_file = st.file_uploader("Upload Image", type=['png', 'jpg'])
-        if uploaded_file:
-            st.image(uploaded_file, caption="Source", width=300)
-            if st.button("⚡ Start Recognition", type="primary"):
-                if use_simulation:
-                    st.session_state['ocr_result'] = "1+2x2=6\n3x(2+3)=9"
-                    st.success("Done (Simulated)")
-                else:
-                    with st.spinner("Analyzing equations with parentheses..."):
-                        res = call_qwen_ocr(uploaded_file)
-                        st.session_state['ocr_result'] = res
-                        st.success("Analysis Complete!")
-
-    with col2:
-        st.markdown("### 📝 Verify")
-        current_text = st.session_state.get('ocr_result', "")
-        user_input = st.text_area("Equations", value=current_text, height=200)
+    # 1. 上传区域 (Top)
+    st.markdown("### 1. Upload Image")
+    uploaded_file = st.file_uploader("Choose an image...", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
+    
+    if uploaded_file:
+        # 图片居中显示
+        st.image(uploaded_file, caption="Uploaded Homework", width=500)
         
-        if st.button("Confirm & Analyze ➡️", use_container_width=True):
-            if user_input:
-                with st.spinner("Evaluating logic..."):
-                    new_data = parse_and_solve(user_input)
-                    if new_data:
-                        new_df = pd.DataFrame(new_data)
-                        st.session_state['global_db'] = pd.concat([st.session_state['global_db'], new_df], ignore_index=True)
-                        st.success(f"Analyzed {len(new_data)} equations!")
-                    else:
-                        st.error("No valid equations found.")
+        # 识别按钮
+        if st.button("⚡ Start AI Analysis", type="primary", use_container_width=True):
+            # 这里的 Spinner 文案已改为通用的 AI
+            with st.spinner("AI is analyzing image..."):
+                res = call_ai_ocr(uploaded_file)
+                st.session_state['ocr_result'] = res
+                st.success("Scan Complete!")
+
+    # 分隔线
+    st.markdown("---")
+
+    # 2. 结果确认区域 (Bottom)
+    st.markdown("### 2. Verify & Process")
+    
+    current_text = st.session_state.get('ocr_result', "")
+    
+    # 如果还没有识别结果，给一个占位符提示
+    if not current_text and not uploaded_file:
+         st.info("👆 Please upload an image above to start.")
+    
+    # 文本框永远显示（即使为空）
+    user_input = st.text_area(
+        "Recognized Equations (Editable)", 
+        value=current_text, 
+        height=150,
+        placeholder="Waiting for scan result..."
+    )
+    
+    # 确认按钮
+    if st.button("Confirm & Generate Lessons ➡️", use_container_width=True):
+        if user_input:
+            # 这里的 Spinner 文案也改为通用的 AI
+            with st.spinner("AI is generating learning guide..."):
+                new_data = parse_and_solve(user_input)
+                if new_data:
+                    new_df = pd.DataFrame(new_data)
+                    st.session_state['global_db'] = pd.concat([st.session_state['global_db'], new_df], ignore_index=True)
+                    st.success(f"Success! {len(new_data)} equations processed. Check Dashboard.")
+                else:
+                    st.error("No valid equations found. Please check the format.")
+        else:
+            st.warning("Input is empty.")
 
 elif page == "My Dashboard":
     st.title("📊 Learning Dashboard")
@@ -244,7 +273,7 @@ elif page == "My Dashboard":
             st.altair_chart(chart, use_container_width=True)
 
         st.markdown("---")
-        st.subheader("📝 AI Feedback & Steps")
+        st.subheader("📝 AI Feedback & Review")
         
         display_df = wrong_df if not wrong_df.empty else df
         
@@ -256,11 +285,9 @@ elif page == "My Dashboard":
                     with c2: st.markdown(f"**{row['Equation']}**")
                     with c3: st.caption(f"Correct: {row['Correct Answer']}")
                     
-                    with st.expander(f"🤖 AI Tutor: Analysis for {row['Equation']}"):
+                    with st.expander(f"🤖 AI Analysis for {row['Equation']}"):
                         st.info(f"**Explanation:**\n{row['Explanation']}")
                         
                 st.markdown("<hr style='opacity:0.2'>", unsafe_allow_html=True)
     else:
-        st.info("No data yet.")
-
-
+        st.info("No data available yet.")
