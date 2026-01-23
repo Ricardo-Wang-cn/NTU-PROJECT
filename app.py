@@ -696,9 +696,9 @@ def apply_theme(theme):
             backdrop-filter: blur(20px);
             border-radius: 20px;
             padding: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(100, 116, 139, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(100, 116, 139, 0.35);
             margin-top: 1rem;
-            border: 1px solid rgba(100, 116, 139, 0.1);
+            border: 1px solid rgba(100, 116, 139, 0.35);
         }
         
         /* 顶栏 - 与主页面统一，确保覆盖所有顶栏元素 */
@@ -721,7 +721,7 @@ def apply_theme(theme):
         header[data-testid="stHeader"],
         .stApp > header,
         header {
-            border-bottom: 1px solid rgba(100, 116, 139, 0.1) !important;
+            border-bottom: 1px solid rgba(100, 116, 139, 0.35) !important;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
         }
         
@@ -744,7 +744,7 @@ def apply_theme(theme):
         section[data-testid="stSidebar"] {
             background: rgba(255, 255, 255, 0.95) !important;
             backdrop-filter: blur(20px);
-            border-right: 1px solid rgba(100, 116, 139, 0.1) !important;
+            border-right: 1px solid rgba(100, 116, 139, 0.35) !important;
         }
         
         section[data-testid="stSidebar"] > div {
@@ -790,7 +790,8 @@ def apply_theme(theme):
         }
         
         section[data-testid="stSidebar"] hr {
-            border-color: rgba(100, 116, 139, 0.2) !important;
+            border-color: rgba(100, 116, 139, 0.4) !important;
+            background-color: rgba(100, 116, 139, 0.4) !important;
         }
         
         /* 侧边栏图片在浅色模式下 */
@@ -892,7 +893,8 @@ def apply_theme(theme):
         
         div[data-testid="metric-container"] {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
-            border: 1px solid rgba(100, 116, 139, 0.2);
+            border: 1px solid rgba(100, 116, 139, 0.4);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(100, 116, 139, 0.1);
         }
         
         .stButton > button {
@@ -920,13 +922,24 @@ def apply_theme(theme):
         
         .stTextArea > div > div > textarea {
             background: rgba(255, 255, 255, 0.9);
-            border: 2px solid rgba(100, 116, 139, 0.2);
+            border: 2px solid rgba(100, 116, 139, 0.4);
             color: #1e293b;
+        }
+        
+        .stTextArea > div > div > textarea:focus {
+            border: 2px solid rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
         div[data-testid="stFileUploader"] {
             background: rgba(255, 255, 255, 0.8);
-            border: 2px dashed rgba(59, 130, 246, 0.3);
+            border: 2px dashed rgba(59, 130, 246, 0.5);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+        
+        div[data-testid="stFileUploader"]:hover {
+            border-color: rgba(59, 130, 246, 0.7);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
         }
         
         div[data-testid="stFileUploader"] * {
@@ -940,7 +953,7 @@ def apply_theme(theme):
         html body header[data-testid="stHeader"] {
             background: rgba(255, 255, 255, 0.95) !important;
             backdrop-filter: blur(20px) !important;
-            border-bottom: 1px solid rgba(100, 116, 139, 0.1) !important;
+            border-bottom: 1px solid rgba(100, 116, 139, 0.35) !important;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
         }
         
@@ -983,6 +996,84 @@ def apply_theme(theme):
         [data-testid="column"] strong,
         [data-testid="column"] b {
             color: #0f172a !important;
+        }
+        
+        /* 增强所有边框对比度 - 浅色主题 */
+        * {
+            border-color: rgba(100, 116, 139, 0.3) !important;
+        }
+        
+        /* Radio 按钮边框增强 */
+        .stRadio > div {
+            border: 1px solid rgba(100, 116, 139, 0.4) !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* Expander 边框增强 */
+        .streamlit-expanderHeader {
+            border: 1px solid rgba(100, 116, 139, 0.4) !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+        
+        .streamlit-expanderHeader:hover {
+            border-color: rgba(100, 116, 139, 0.5) !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+        }
+        
+        /* Expander 内容区域边框 */
+        .streamlit-expanderContent {
+            border: 1px solid rgba(100, 116, 139, 0.3) !important;
+            border-top: none !important;
+        }
+        
+        /* 图表容器边框增强 */
+        .stAltairChart {
+            border: 1px solid rgba(100, 116, 139, 0.4) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* 成功/错误/信息提示框边框增强 */
+        .stSuccess, .stError, .stInfo, .stWarning {
+            border: 1px solid rgba(100, 116, 139, 0.4) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* 输入框边框增强 */
+        input[type="text"],
+        input[type="password"],
+        input[type="number"],
+        select {
+            border: 1px solid rgba(100, 116, 139, 0.4) !important;
+        }
+        
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            border: 1px solid rgba(59, 130, 246, 0.6) !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* 图片容器边框增强 */
+        .stImage > img {
+            border: 1px solid rgba(100, 116, 139, 0.4) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 表格边框增强 */
+        table {
+            border: 1px solid rgba(100, 116, 139, 0.4) !important;
+        }
+        
+        th, td {
+            border: 1px solid rgba(100, 116, 139, 0.3) !important;
+        }
+        
+        /* 分隔线增强 */
+        hr {
+            border-color: rgba(100, 116, 139, 0.4) !important;
+            background-color: rgba(100, 116, 139, 0.4) !important;
+            height: 1px !important;
         }
         </style>
         """, unsafe_allow_html=True)
