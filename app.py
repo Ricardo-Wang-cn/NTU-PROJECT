@@ -1178,7 +1178,7 @@ def get_ai_explanation(equation_str, user_ans, correct_ans):
         completion = client.chat.completions.create(
             model="qwen3-omni-flash",
             messages=[
-                {"role": "system", "content": "You are a concise math tutor."},
+                {"role": "system", "content": "你是一个数学老师，请解问题，并且生成一道类似的新练习题并给出答案."},
                 {"role": "user", "content": prompt}
             ],
             stream=False
@@ -1636,6 +1636,7 @@ if st.session_state['ai_chat_open']:
                 if clear:
                     st.session_state['ai_chat_history'] = []
                     st.rerun()
+
 
 
 
