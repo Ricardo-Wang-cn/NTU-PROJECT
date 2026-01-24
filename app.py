@@ -1427,58 +1427,7 @@ elif page == "My Dashboard":
     else:
         st.info("No data available. Go to Scan page first.")
 
-    # === AI 悬浮聊天助手逻辑 ===
     
-    # 1. 渲染右下角悬浮小圆圈按钮
-    st.markdown('<div class="fab-container">', unsafe_allow_html=True)
-    if st.button("💬", key="fab_button", help="Help with mistakes"):
-        st.session_state['show_chat'] = not st.session_state['show_chat']
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # 2. 如果开启了聊天窗口
-    if st.session_state['show_chat']:
-        with st.container():
-            # 使用 container 模拟聊天窗口（配合 CSS）
-            st.markdown('<div class="chat-window">', unsafe_allow_html=True)
-            st.markdown("### 🤖 AI Tutor Assistant")
-            st.caption("Ask me about the mistakes on your dashboard.")
-            
-            # 聊天记录显示区
-            chat_placeholder = st.container(height=300)
-            for message in st.session_state['chat_messages']:
-                with chat_placeholder.chat_message(message["role"]):
-                    st.write(message["content"])
-
-            # 输入区
-            if prompt := st.chat_input("Explain this mistake..."):
-                # 用户消息
-                st.session_state['chat_messages'].append({"role": "user", "content": prompt})
-                with chat_placeholder.chat_message("user"):
-                    st.write(prompt)
-
-                # 调用 AI 回复
-                with chat_placeholder.chat_message("assistant"):
-                    try:
-                        response = client.chat.completions.create(
-                            model="qwen3-omni-flash",
-                            messages=[
-                                {"role": "system", "content": "You are a helpful math tutor. Help the student understand the mistakes on their dashboard based on their practice data within 100 words"},
-                                *[{"role": m["role"], "content": m["content"]} for m in st.session_state['chat_messages']]
-                            ],
-                            stream=False
-                        )
-                        full_response = response.choices[0].message.content
-                        st.write(full_response)
-                        st.session_state['chat_messages'].append({"role": "assistant", "content": full_response})
-                    except Exception as e:
-                        st.error(f"AI Error: {e}")
-            
-            # 关闭按钮
-            if st.button("Close Chat", use_container_width=True):
-                st.session_state['show_chat'] = False
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 页面 C: 全局联网论坛 (修正版) ---
 elif page == "Global Forum":
