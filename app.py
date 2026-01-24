@@ -1199,59 +1199,88 @@ def get_ai_explanation(equation_str, user_ans, correct_ans):
         return "Check calculation steps."
 
 # --- 功能 C: AI 生成练习题 ---
-def generate_practice_problems(error_types, sample_equations, num_problems=3):
-    """根据错题类型生成极其类似的练习题"""
+def generate_practice_problems(error_types, sample_equations, num_problems=5):
+    """根据错题类型生成类似的练习题"""
     try:
-        # 将样本题和错误类型组合成一个字符串
-        context = ""
-        for eq in sample_equations[:3]:
-            context += f"- Problem: {eq}\n"
+        # 分析错题的具体特征
+        equations_text = '\n'.join([f"- {eq}" for eq in sample_equations[:10]])
+        
+        prompt = f"""你是一个数学练习题生成专家。请仔细分析学生的错题，然后生成相似的练习题。
 
-        prompt = f"""You are a strict math teacher. The student made mistakes on these specific questions:
-{context}
+【学生的错题列表】：
+{equations_text}
 
-Mathematical category: {', '.join(error_types)}
+【错题类型】：{', '.join(error_types)}
 
-STRICT TASK:
-Generate {num_problems} NEW practice problems. 
-The new problems MUST follow the EXACT SAME mathematical structure and operation type as the examples provided above.
+【任务】：
+请生成 {num_problems} 道与上面错题**高度相似**的练习题。
 
-Requirements:
-1. If the examples use Addition, generate ONLY Addition.
-2. If the examples use Roots (√), generate ONLY Roots.
-3. If the examples involve multiple steps, the new ones must also have multiple steps.
-4. Format: Equation = ? (e.g., 12 + 5 = ?)
-5. One problem per line. No numbering, no LaTeX, no English text.
+【相似性要求】：
+1. 如果错题是加减法，生成加减法题目，数字范围相近
+2. 如果错题是乘除法，生成乘除法题目，数字大小相近
+3. 如果错题有根号√，生成带根号的题目
+4. 如果错题有括号，生成带括号的题目
+5. 如果错题是多步运算，生成多步运算题目
+6. 保持题目结构和难度与错题相似
 
-Example Output:
-15 + 27 = ?
-8 + 14 = ?
+【输出格式】：
+每行一道题，格式: 算式 = ?
+不要编号，不要解释，只输出题目。
+
+【示例】：
+如果错题是 "12 + 8"，则生成类似的: 15 + 9 = ?
+如果错题是 "√16 + 3"，则生成类似的: √25 + 4 = ?
+如果错题是 "(3 + 5) × 2"，则生成类似的: (4 + 6) × 3 = ?
 """
         
         completion = client.chat.completions.create(
             model="qwen3-omni-flash",
             messages=[
-                {"role": "system", "content": "You are a math problem generator. You MUST mimic the exact type of math provided in the samples."},
+                {"role": "system", "content": "你是数学练习题生成专家。必须生成与学生错题结构相似、难度相近的题目。严格按格式输出：每行一道题，格式为 算式 = ?"},
                 {"role": "user", "content": prompt}
             ],
             stream=False
         )
         
+        # 解析返回的题目
         response = completion.choices[0].message.content
         lines = response.split('\n')
         problems = []
         
         for line in lines:
             line = line.strip()
-            if not line: continue
-            # 清理 AI 可能带的序号
+            # 移除可能的编号（如 1. 2. 等）
             line = re.sub(r'^[\d]+[\.\)]\s*', '', line)
-            if '=' in line:
+            # 移除可能的 Q1: 等前缀
+            line = re.sub(r'^[Qq][\d]+[:\.\)]\s*', '', line)
+            line = line.strip()
+            
+            if line and len(line) > 2:
+                # 如果没有 = ?，添加上
+                if '=' not in line:
+                    line = line + ' = ?'
+                elif '?' not in line:
+                    line = line.rstrip('=').strip() + ' = ?'
                 problems.append(line)
+        
+        # 如果解析失败，根据错题类型生成默认题目
+        if not problems:
+            if 'Roots' in error_types:
+                problems = ["√9 + 5 = ?", "√16 - 2 = ?", "√25 + √4 = ?", "√49 × 2 = ?", "√36 ÷ 3 = ?"]
+            elif 'Exponents' in error_types:
+                problems = ["2^3 + 5 = ?", "3^2 × 2 = ?", "4^2 - 10 = ?", "5^2 + 3^2 = ?", "2^4 ÷ 2 = ?"]
+            else:
+                problems = ["15 + 28 = ?", "45 - 17 = ?", "8 × 7 = ?", "56 ÷ 8 = ?", "(5 + 3) × 4 = ?"]
         
         return problems[:num_problems]
     except Exception as e:
-        return ["2 + 2 = ?"] # 兜底逻辑
+        # 根据错题类型返回相关的默认题目
+        if error_types and 'Roots' in error_types:
+            return ["√16 + 3 = ?", "√9 × 4 = ?", "√25 - 3 = ?", "√49 + 2 = ?", "√36 ÷ 2 = ?"][:num_problems]
+        elif error_types and 'Exponents' in error_types:
+            return ["2^3 + 4 = ?", "3^2 - 5 = ?", "4^2 × 2 = ?", "5^2 - 10 = ?", "2^5 ÷ 4 = ?"][:num_problems]
+        else:
+            return ["18 + 25 = ?", "42 - 19 = ?", "7 × 8 = ?", "63 ÷ 9 = ?", "(6 + 4) × 5 = ?"][:num_problems]
 
 def check_practice_answer(problem, user_answer):
     """检查练习题答案"""
@@ -1582,7 +1611,7 @@ elif page == "Practice":
             st.markdown(f"**Total Mistakes:** {len(wrong_df)}")
         
         with col2:
-            num_problems = st.selectbox("Number of problems:", [1, 2, 3], index=2)
+            num_problems = st.selectbox("Number of problems:", [3, 5, 8, 10], index=1)
         
         st.markdown("---")
         
