@@ -17,7 +17,6 @@ supabase: Client = create_client("https://tpokdzclxncdtmfxvkuy.supabase.co", "sb
 import pandas as pd
 import altair as alt
 import base64
-import re
 from openai import OpenAI
 
 # --- Session State 初始化 ---
@@ -38,15 +37,6 @@ if 'ai_chat_history' not in st.session_state:
 
 if 'ai_chat_open' not in st.session_state:
     st.session_state['ai_chat_open'] = False
-
-if 'practice_problems' not in st.session_state:
-    st.session_state['practice_problems'] = []
-
-if 'practice_answers' not in st.session_state:
-    st.session_state['practice_answers'] = {}
-
-if 'practice_results' not in st.session_state:
-    st.session_state['practice_results'] = {}
 
 if 'theme' not in st.session_state:
     st.session_state['theme'] = 'dark'
@@ -81,7 +71,6 @@ if not st.session_state['logged_in']:
 # ================= 1. UI 样式配置 =================
 st.markdown("""
 <style>
-    
     /* 科技感深色背景 - 深蓝灰渐变 */
     .stApp {
         background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 25%, #1e2749 50%, #0f1419 75%, #0a0e27 100%);
@@ -1180,131 +1169,36 @@ def call_ai_ocr(uploaded_file):
 def get_ai_explanation(equation_str, user_ans, correct_ans):
     try:
         prompt = f"""
-        The student answered '{equation_str} = {user_ans}', which is WRONG. 
-        The CORRECT answer is {correct_ans}.
-        Please explain the error. If parentheses are involved, explain the priority.
-        Keep it extremely concise (under 40 English words).
+        学生在做这道题：'{equation_str}' 时填写的答案是 '{user_ans}'，这是错误的。
+        这道题的正确答案应该是 '{correct_ans}'。
+
+        请执行以下任务：
+        1. 简要说明错误原因（不超过 30 个字）。
+        2. 根据该题涉及的数学概念，出一道类似的“挑战题”。
+        3. 提供这道挑战题的正确答案。
+
+        请严格按照以下格式输出：
+        错误分析：[这里写你的解释]
+
+        ---
+        **🚀 举一反三：类似挑战**
+        题目：[这里写新题目]
+        答案：[这里写新题目的正确答案]
         """
         
         completion = client.chat.completions.create(
             model="qwen3-omni-flash",
             messages=[
-                {"role": "system", "content": "You are a concise math tutor."},
+                {"role": "system", "content": "你是一个专业的数学导师。你的回答需要简洁、精准（100字以内）。"},
                 {"role": "user", "content": prompt}
             ],
             stream=False
         )
         return completion.choices[0].message.content
     except:
-        return "Check calculation steps."
+        return "检查计算步骤。尝试再练习一道同类型的题吧！"
 
-# --- 功能 C: AI 生成练习题 ---
-def generate_practice_problems(error_types, sample_equations, num_problems=5):
-    """根据错题类型生成类似的练习题"""
-    try:
-        prompt = f"""生成{num_problems}道数学练习题。
-
-参考错题类型: {', '.join(error_types) if error_types else 'Arithmetic'}
-参考示例: {', '.join(sample_equations[:3]) if sample_equations else '2+3, 5×6'}
-
-严格要求：
-1. 每道题单独一行
-2. 格式必须是: 算式 = ?（例如: 12 + 8 = ?）
-3. 只输出题目，不要编号，不要解释
-4. 使用普通符号: + - × ÷ √ 
-5. 不要使用LaTeX
-
-示例输出:
-15 + 27 = ?
-8 × 6 = ?
-√16 + 5 = ?
-"""
-        
-        completion = client.chat.completions.create(
-            model="qwen3-omni-flash",
-            messages=[
-                {"role": "system", "content": "你是数学题生成器。严格按格式输出题目，每行一道，格式: 算式 = ?"},
-                {"role": "user", "content": prompt}
-            ],
-            stream=False
-        )
-        
-        # 解析返回的题目
-        response = completion.choices[0].message.content
-        lines = response.split('\n')
-        problems = []
-        
-        for line in lines:
-            line = line.strip()
-            # 移除可能的编号（如 1. 2. 等）
-            line = re.sub(r'^[\d]+[\.\)]\s*', '', line)
-            line = line.strip()
-            
-            if line and len(line) > 2:
-                # 如果没有 = ?，添加上
-                if '=' not in line:
-                    line = line + ' = ?'
-                elif '?' not in line:
-                    line = line.rstrip('=').strip() + ' = ?'
-                problems.append(line)
-        
-        # 如果解析失败，生成默认题目
-        if not problems:
-            problems = [
-                "12 + 8 = ?",
-                "15 × 3 = ?",
-                "48 ÷ 6 = ?",
-                "25 - 17 = ?",
-                "7 × 9 = ?"
-            ]
-        
-        return problems[:num_problems]
-    except Exception as e:
-        # 返回默认题目而不是错误信息
-        return [
-            "10 + 15 = ?",
-            "8 × 7 = ?",
-            "36 ÷ 4 = ?",
-            "50 - 23 = ?",
-            "6 × 8 = ?"
-        ][:num_problems]
-
-def check_practice_answer(problem, user_answer):
-    """检查练习题答案"""
-    try:
-        # 提取题目部分（去掉 = ? 或 = ）
-        question = problem.split('=')[0].strip()
-        
-        # 让AI计算正确答案
-        response = client.chat.completions.create(
-            model="qwen3-omni-flash",
-            messages=[
-                {"role": "system", "content": "你是一个数学计算器。只返回计算结果，不要任何解释。"},
-                {"role": "user", "content": f"计算: {question}"}
-            ],
-            stream=False
-        )
-        correct_answer = response.choices[0].message.content.strip()
-        
-        # 比较答案
-        user_ans_clean = user_answer.strip().replace(" ", "")
-        correct_ans_clean = correct_answer.replace(" ", "")
-        
-        is_correct = user_ans_clean == correct_ans_clean
-        
-        return {
-            "is_correct": is_correct,
-            "correct_answer": correct_answer,
-            "user_answer": user_answer
-        }
-    except Exception as e:
-        return {
-            "is_correct": False,
-            "correct_answer": "计算错误",
-            "user_answer": user_answer
-        }
-
-# --- 功能 D: AI 在线问答 ---
+# --- 功能 C: AI 在线问答 ---
 def get_ai_chat_response(user_message, chat_history):
     """AI在线问答功能"""
     try:
@@ -1434,13 +1328,6 @@ with st.sidebar:
         st.session_state['current_page'] = "My Dashboard"
         st.rerun()
     
-    # 练习页面
-    if st.button("Practice", 
-                 type="primary" if st.session_state['current_page'] == "Practice" else "secondary", 
-                 use_container_width=True):
-        st.session_state['current_page'] = "Practice"
-        st.rerun()
-    
     # 全局论坛 (联网功能)
     if st.button("Global Forum", 
                  type="primary" if st.session_state['current_page'] == "Global Forum" else "secondary", 
@@ -1563,7 +1450,11 @@ elif page == "My Dashboard":
             with st.container():
                 c1, c2, c3 = st.columns([0.5, 2, 2])
                 with c1: 
-                    if row['Status'] == 'Incorrect': st.error("")
+                    # 找到 Dashboard 循环显示错题的地方
+                    if row['Status'] == 'Incorrect':
+                        with st.expander(f"See AI Analysis"):
+                            # row['Explanation'] 现在包含了解释、横线和新题目
+                            st.info(f"{row['Explanation']}")
                     else: st.success("")
                 with c2: st.markdown(f"**{row['Equation']}**")
                 with c3: st.caption(f"Correct Answer: {row['Correct Answer']}")
@@ -1575,141 +1466,7 @@ elif page == "My Dashboard":
     else:
         st.info("No data available. Go to Scan page first.")
 
-# --- 页面 C: 练习页面 ---
-elif page == "Practice":
-    st.title("Practice Mode")
-    st.caption("Generate similar problems based on your mistakes and practice!")
-    
-    df = st.session_state['global_db']
-    wrong_df = df[df['Status'] == "Incorrect"] if not df.empty else pd.DataFrame()
-    
-    if wrong_df.empty:
-        st.warning("No mistakes recorded yet. Scan some homework first to get practice problems!")
-        st.info("Go to Home (Scan) to upload and analyze your homework.")
-    else:
-        # 显示错题统计
-        st.markdown("### Your Weak Areas")
-        error_types = wrong_df['Error Type'].unique().tolist()
-        sample_equations = wrong_df['Equation'].tolist()
-        
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            st.markdown(f"**Error Types:** {', '.join(error_types)}")
-            st.markdown(f"**Total Mistakes:** {len(wrong_df)}")
-        
-        with col2:
-            num_problems = st.selectbox("Number of problems:", [3, 5, 8, 10], index=1)
-        
-        st.markdown("---")
-        
-        # 生成练习题按钮
-        if st.button("Generate Practice Problems", type="primary", use_container_width=True):
-            with st.spinner("AI is generating practice problems..."):
-                problems = generate_practice_problems(error_types, sample_equations, num_problems)
-                st.session_state['practice_problems'] = problems
-                st.session_state['practice_answers'] = {}
-                st.session_state['practice_results'] = {}
-            st.rerun()
-        
-        # 显示练习题
-        if st.session_state['practice_problems']:
-            st.markdown("### Practice Problems")
-            st.markdown("*Solve these problems and check your answers!*")
-            
-            with st.form(key="practice_form"):
-                for i, problem in enumerate(st.session_state['practice_problems']):
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.markdown(f"**Q{i+1}.** {problem}")
-                    with col2:
-                        # 显示之前的结果（如果有）
-                        if i in st.session_state['practice_results']:
-                            result = st.session_state['practice_results'][i]
-                            if result['is_correct']:
-                                st.success("✓")
-                            else:
-                                st.error("✗")
-                    
-                    # 答案输入框
-                    answer = st.text_input(
-                        f"Your answer for Q{i+1}:", 
-                        key=f"answer_{i}",
-                        placeholder="Enter your answer...",
-                        value=st.session_state['practice_answers'].get(i, "")
-                    )
-                    st.session_state['practice_answers'][i] = answer
-                    st.markdown("---")
-                
-                # 提交按钮
-                col1, col2, col3 = st.columns([1, 1, 1])
-                with col1:
-                    submit = st.form_submit_button("Check Answers", type="primary", use_container_width=True)
-                with col2:
-                    clear = st.form_submit_button("Clear All", use_container_width=True)
-                with col3:
-                    new_problems = st.form_submit_button("New Problems", use_container_width=True)
-            
-            # 处理提交
-            if submit:
-                correct_count = 0
-                with st.spinner("Checking answers..."):
-                    for i, problem in enumerate(st.session_state['practice_problems']):
-                        user_answer = st.session_state['practice_answers'].get(i, "")
-                        if user_answer:
-                            result = check_practice_answer(problem, user_answer)
-                            st.session_state['practice_results'][i] = result
-                            if result['is_correct']:
-                                correct_count += 1
-                
-                st.rerun()
-            
-            if clear:
-                st.session_state['practice_answers'] = {}
-                st.session_state['practice_results'] = {}
-                st.rerun()
-            
-            if new_problems:
-                st.session_state['practice_problems'] = []
-                st.session_state['practice_answers'] = {}
-                st.session_state['practice_results'] = {}
-                st.rerun()
-            
-            # 显示结果统计
-            if st.session_state['practice_results']:
-                st.markdown("### Results")
-                correct = sum(1 for r in st.session_state['practice_results'].values() if r['is_correct'])
-                total = len(st.session_state['practice_results'])
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Correct", f"{correct}/{total}")
-                with col2:
-                    accuracy = (correct/total*100) if total > 0 else 0
-                    st.metric("Accuracy", f"{accuracy:.0f}%")
-                with col3:
-                    if accuracy >= 80:
-                        st.success("Great job!")
-                    elif accuracy >= 60:
-                        st.warning("Keep practicing!")
-                    else:
-                        st.error("Need more practice!")
-                
-                # 显示详细结果
-                st.markdown("### Detailed Results")
-                for i, problem in enumerate(st.session_state['practice_problems']):
-                    if i in st.session_state['practice_results']:
-                        result = st.session_state['practice_results'][i]
-                        with st.container():
-                            if result['is_correct']:
-                                st.success(f"**Q{i+1}.** {problem}")
-                                st.markdown(f"Your answer: **{result['user_answer']}** ✓")
-                            else:
-                                st.error(f"**Q{i+1}.** {problem}")
-                                st.markdown(f"Your answer: **{result['user_answer']}** ✗")
-                                st.markdown(f"Correct answer: **{result['correct_answer']}**")
-                        st.markdown("---")
-
-# --- 页面 D: 全局联网论坛 (修正版) ---
+# --- 页面 C: 全局联网论坛 (修正版) ---
 elif page == "Global Forum":
     st.title("Global Discussion Forum")
     st.caption(f"Logged in as: {st.session_state['user_name']}")
