@@ -1,5 +1,12 @@
 import streamlit as st
 
+# ================= 页面配置 (必须放在最前面) =================
+st.set_page_config(
+    page_title="Mistake-Driven Learning", 
+    page_icon="📚", 
+    layout="wide" 
+)
+
 from supabase import create_client, Client
 
 # 初始化云端连接 (请替换成你在 Supabase 申请的地址)
@@ -8,12 +15,11 @@ SUPABASE_KEY = "sb_publishable_ihHrH-gkKfN480wulWcikw_x5JBNPFs"
 supabase: Client = create_client("https://tpokdzclxncdtmfxvkuy.supabase.co", "sb_publishable_ihHrH-gkKfN480wulWcikw_x5JBNPFs")
 
 import pandas as pd
-import re
 import altair as alt
 import base64
 from openai import OpenAI
 
-# --- 必须放在最前面的初始化代码 ---
+# --- Session State 初始化 ---
 if 'current_page' not in st.session_state:
     st.session_state['current_page'] = "Home (Scan)"
 
@@ -26,17 +32,14 @@ if 'logged_in' not in st.session_state:
 if 'user_name' not in st.session_state:
     st.session_state['user_name'] = ""
 
-# 初始化 AI 聊天助手状态
-if 'chat_messages' not in st.session_state:
-    st.session_state['chat_messages'] = []
-if 'show_chat' not in st.session_state:
-    st.session_state['show_chat'] = False
+if 'ai_chat_history' not in st.session_state:
+    st.session_state['ai_chat_history'] = []
 
-# 初始化登录状态
-if 'logged_in' not in st.session_state:
-    st.session_state['logged_in'] = False
-if 'user_name' not in st.session_state:
-    st.session_state['user_name'] = ""
+if 'ai_chat_open' not in st.session_state:
+    st.session_state['ai_chat_open'] = False
+
+if 'theme' not in st.session_state:
+    st.session_state['theme'] = 'dark'
 
 # 简单的登录/注册逻辑
 def show_login_ui():
@@ -65,17 +68,7 @@ if not st.session_state['logged_in']:
     show_login_ui()
     st.stop() # 关键：不运行后面的代码
 
-# ================= 1. UI 配置 =================
-st.set_page_config(
-    page_title="Mistake-Driven Learning", 
-    page_icon="", 
-    layout="wide" 
-)
-
-# 初始化主题状态
-if 'theme' not in st.session_state:
-    st.session_state['theme'] = 'dark'  # 默认深色主题
-
+# ================= 1. UI 样式配置 =================
 st.markdown("""
 <style>
     /* 科技感深色背景 - 深蓝灰渐变 */
@@ -373,17 +366,34 @@ st.markdown("""
     
     /* Secondary 按钮样式 - 深色边框 */
     .stButton > button[kind="secondary"] {
-        background: rgba(30, 40, 60, 0.6);
+        background: rgba(30, 40, 60, 0.8);
         color: #40e0d0;
-        border: 2px solid rgba(64, 224, 208, 0.4);
+        border: 2px solid rgba(64, 224, 208, 0.5);
         backdrop-filter: blur(10px);
+        font-weight: 600;
     }
     
     .stButton > button[kind="secondary"]:hover {
-        background: rgba(64, 224, 208, 0.2);
+        background: rgba(64, 224, 208, 0.25);
         color: #40e0d0;
-        border-color: rgba(64, 224, 208, 0.6);
+        border-color: rgba(64, 224, 208, 0.7);
         box-shadow: 0 0 15px rgba(64, 224, 208, 0.3);
+    }
+    
+    /* 侧边栏 Secondary 按钮 - 深色模式增强可见性 */
+    section[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+        background: rgba(40, 50, 70, 0.9) !important;
+        color: #40e0d0 !important;
+        border: 2px solid rgba(64, 224, 208, 0.6) !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    section[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+        background: rgba(64, 224, 208, 0.3) !important;
+        color: #40e0d0 !important;
+        border-color: rgba(64, 224, 208, 0.8) !important;
+        box-shadow: 0 4px 15px rgba(64, 224, 208, 0.4);
     }
     
     /* 上传组件优化 - 深色风格 */
@@ -651,31 +661,6 @@ st.markdown("""
     .stSpinner > div {
         border-color: #40e0d0 !important;
     }
-            
-        /* === 把新 CSS 粘贴在这里 === */
-    .fab-container {
-        position: fixed;
-        bottom: 25px;
-        right: 25px;
-        z-index: 1000;
-    }
-    .chat-window {
-        position: fixed;
-        bottom: 90px;
-        right: 25px;
-        width: 350px;
-        height: 500px;
-        background: rgba(20, 25, 40, 0.95);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(64, 224, 208, 0.3);
-        border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        z-index: 1001;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        padding: 15px; /* 增加一点内边距 */
-    
     
     /* 卡片悬停增强 */
     div[data-testid="metric-container"] {
@@ -934,16 +919,33 @@ def apply_theme(theme):
         }
         
         .stButton > button[kind="secondary"] {
-            background: rgba(241, 245, 249, 0.9);
-            color: #3b82f6;
+            background: rgba(241, 245, 249, 0.95);
+            color: #2563eb;
             border: 2px solid #3b82f6;
+            font-weight: 600;
         }
         
-        /* 侧边栏按钮在浅色模式下 */
+        .stButton > button[kind="secondary"]:hover {
+            background: rgba(59, 130, 246, 0.15);
+            color: #1d4ed8;
+            border-color: #2563eb;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        /* 侧边栏按钮在浅色模式下 - 增强可见性 */
         section[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
-            background: rgba(241, 245, 249, 0.9);
-            color: #3b82f6;
-            border: 2px solid #3b82f6;
+            background: rgba(255, 255, 255, 0.95) !important;
+            color: #2563eb !important;
+            border: 2px solid #3b82f6 !important;
+            font-weight: 600 !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        section[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+            background: rgba(59, 130, 246, 0.15) !important;
+            color: #1d4ed8 !important;
+            border-color: #2563eb !important;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
         
         section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
@@ -1185,10 +1187,37 @@ def get_ai_explanation(equation_str, user_ans, correct_ans):
     except:
         return "Check calculation steps."
 
-# ================= 3. 数据处理逻辑 =================
+# --- 功能 C: AI 在线问答 ---
+def get_ai_chat_response(user_message, chat_history):
+    """AI在线问答功能"""
+    try:
+        # 构建对话历史
+        messages = [
+            {"role": "system", "content": """你是一个友好的数学学习助手。你可以：
+            1. 回答数学相关问题
+            2. 解释数学概念
+            3. 帮助解决数学难题
+            4. 提供学习建议
+            请用简洁、易懂的语言回答，支持中英文。"""}
+        ]
+        
+        # 添加历史对话（最多保留最近5轮）
+        for msg in chat_history[-10:]:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+        
+        # 添加当前问题
+        messages.append({"role": "user", "content": user_message})
+        
+        completion = client.chat.completions.create(
+            model="qwen3-omni-flash",
+            messages=messages,
+            stream=False
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"抱歉，AI暂时无法回答。错误：{str(e)}"
 
-if 'global_db' not in st.session_state:
-    st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
+# ================= 3. 数据处理逻辑 =================
 
 def get_correct_answer_from_ai(problem_str):
     """专门调用 AI 获取复杂数学题的标准答案"""
@@ -1264,15 +1293,10 @@ def parse_and_solve(text_block):
     progress_bar.empty()
     return results
     
-# ================= 4. 侧边栏 (纯净版) =================
 # ================= 4. 侧边栏 (导航与系统控制) =================
 with st.sidebar:
     # --- 1. 顶部图标 ---
     st.image("https://cdn-icons-png.flaticon.com/512/2997/2997235.png", width=60)
-    
-    # --- 2. 重要：必须先初始化变量，才能在下面的按钮中使用 ---
-    if 'current_page' not in st.session_state:
-        st.session_state['current_page'] = "Home (Scan)"
     
     # 显示当前登录的用户
     st.markdown(f"**User:** {st.session_state.get('user_name', 'Guest')}")
@@ -1322,17 +1346,17 @@ with st.sidebar:
     st.markdown("---")
     
     # 重置本地临时数据
-    if st.button("Reset Local Data", type="secondary", help="Only clears current session data"):
-        st.session_state['global_db'] = pd.DataFrame(columns=['Equation', 'User Answer', 'Correct Answer', 'Status', 'Error Type', 'Timestamp', 'Explanation'])
+    if st.button(
+    "Reset Local Data",
+    type="secondary",
+    use_container_width=True,
+    help="Only clears current session data"
+):
+    
+
         st.rerun()
 
-# --- 5. 获取当前页面名称，供下方逻辑使用 ---
-page = st.session_state['current_page']
-
-
 # ================= 5. 页面内容控制 =================
-
-# 获取当前显示的页面名称
 page = st.session_state['current_page']
 
 # --- 页面 A: AI 扫描识别 ---
@@ -1427,8 +1451,6 @@ elif page == "My Dashboard":
     else:
         st.info("No data available. Go to Scan page first.")
 
-    
-
 # --- 页面 C: 全局联网论坛 (修正版) ---
 elif page == "Global Forum":
     st.title("Global Discussion Forum")
@@ -1499,8 +1521,121 @@ elif page == "Global Forum":
     except Exception as e:
         st.error(f"Error loading feed: {e}")
 
+# ================= 6. 右下角浮动AI聊天组件 =================
+# 添加固定定位的CSS样式
+st.markdown("""
+<style>
+/* 固定在右下角的聊天容器 */
+div[data-testid="stVerticalBlock"]:has(> div[data-testid="stVerticalBlock"] > div[data-testid="stButton"] > button:contains("AI")) {
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    z-index: 9999 !important;
+}
 
+/* 浮动按钮样式增强 */
+.chat-float-btn {
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    z-index: 99999;
+}
 
+/* 聊天窗口固定样式 */
+.chat-window-fixed {
+    position: fixed;
+    bottom: 90px;
+    right: 25px;
+    width: 360px;
+    z-index: 99998;
+    background: linear-gradient(135deg, rgba(20, 25, 40, 0.98) 0%, rgba(30, 40, 60, 0.98) 100%);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(64, 224, 208, 0.3);
+    backdrop-filter: blur(20px);
+    padding: 15px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# 在页面最右下角添加浮动聊天
+with st.container():
+    # 使用空列来推到右边
+    _, _, _, chat_col = st.columns([1, 1, 1, 1])
+    
+    with chat_col:
+        # 浮动按钮
+        if st.button("💬 AI Chat" if not st.session_state['ai_chat_open'] else "✕ Close Chat", 
+                     key="float_ai_btn", 
+                     type="primary",
+                     use_container_width=True):
+            st.session_state['ai_chat_open'] = not st.session_state['ai_chat_open']
+            st.rerun()
+
+# 聊天窗口（展开时显示）
+if st.session_state['ai_chat_open']:
+    # 使用popover或expander的效果
+    with st.container():
+        _, _, chat_window = st.columns([1, 1, 2])
+        
+        with chat_window:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #40e0d0 0%, #00d4ff 100%); 
+                        color: #0a0e27; padding: 12px 16px; border-radius: 12px 12px 0 0; 
+                        font-weight: 700; margin-bottom: 0;">
+                🤖 AI Math Assistant
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # 聊天历史容器
+            chat_box = st.container(height=250)
+            with chat_box:
+                if not st.session_state['ai_chat_history']:
+                    st.markdown("*👋 Hi! I'm your AI math tutor. Ask me anything!*")
+                else:
+                    for msg in st.session_state['ai_chat_history']:
+                        if msg['role'] == 'user':
+                            st.markdown(f"""
+                            <div style="text-align: right; margin: 8px 0;">
+                                <span style="background: linear-gradient(135deg, #40e0d0, #00d4ff); 
+                                             color: #0a0e27; padding: 8px 12px; border-radius: 12px; 
+                                             display: inline-block; max-width: 85%;">
+                                    {msg['content']}
+                                </span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"""
+                            <div style="text-align: left; margin: 8px 0;">
+                                <span style="background: rgba(64, 224, 208, 0.15); 
+                                             color: #e0e7ff; padding: 8px 12px; border-radius: 12px; 
+                                             display: inline-block; max-width: 85%; 
+                                             border: 1px solid rgba(64, 224, 208, 0.3);">
+                                    {msg['content']}
+                                </span>
+                            </div>
+                            """, unsafe_allow_html=True)
+            
+            # 输入表单
+            with st.form(key="ai_chat_form_float", clear_on_submit=True):
+                user_q = st.text_input("Ask a question...", 
+                                       placeholder="e.g., How to solve x² + 5x + 6 = 0?",
+                                       label_visibility="collapsed")
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    send = st.form_submit_button("Send", type="primary", use_container_width=True)
+                with col2:
+                    clear = st.form_submit_button("🗑️", use_container_width=True)
+                
+                if send and user_q:
+                    st.session_state['ai_chat_history'].append({"role": "user", "content": user_q})
+                    with st.spinner("Thinking..."):
+                        response = get_ai_chat_response(user_q, st.session_state['ai_chat_history'])
+                        st.session_state['ai_chat_history'].append({"role": "assistant", "content": response})
+                    st.rerun()
+                
+                if clear:
+                    st.session_state['ai_chat_history'] = []
+                    st.rerun()
 
 
 
