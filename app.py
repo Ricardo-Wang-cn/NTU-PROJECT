@@ -1193,11 +1193,17 @@ if 'global_db' not in st.session_state:
 def get_correct_answer_from_ai(problem_str):
     """专门调用 AI 获取复杂数学题的标准答案"""
     try:
+       # 找到这一行并进行修改：
         response = client.chat.completions.create(
             model="qwen3-omni-flash",
             messages=[
-                {"role": "system", "content": "你是一个数学计算器。只返回算式的最终结果（数字或最简表达式），不要任何文字解释。"},
-                {"role": "user", "content": f"算出这个算式的结果: {problem_str}"}
+                {
+                    "role": "system", 
+                    "content": """你是一个专业的数学导师。
+                    请根据学生在 Dashboard 上的错题数据提供帮助。
+                    【要求】：回答必须极其简洁明了，字数严格控制在 100 字以内。"""
+                },
+                *[{"role": m["role"], "content": m["content"]} for m in st.session_state['chat_messages']]
             ],
             stream=False
         )
@@ -1549,6 +1555,7 @@ elif page == "Global Forum":
             st.markdown("---")
     except Exception as e:
         st.error(f"Error loading feed: {e}")
+
 
 
 
