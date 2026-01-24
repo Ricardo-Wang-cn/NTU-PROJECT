@@ -26,6 +26,13 @@ if 'logged_in' not in st.session_state:
 if 'user_name' not in st.session_state:
     st.session_state['user_name'] = ""
 
+# 初始化AI聊天状态
+if 'ai_chat_history' not in st.session_state:
+    st.session_state['ai_chat_history'] = []
+
+if 'ai_chat_open' not in st.session_state:
+    st.session_state['ai_chat_open'] = False
+
 # 初始化登录状态
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
@@ -1154,6 +1161,36 @@ def get_ai_explanation(equation_str, user_ans, correct_ans):
     except:
         return "Check calculation steps."
 
+# --- 功能 C: AI 在线问答 ---
+def get_ai_chat_response(user_message, chat_history):
+    """AI在线问答功能"""
+    try:
+        # 构建对话历史
+        messages = [
+            {"role": "system", "content": """你是一个友好的数学学习助手。你可以：
+            1. 回答数学相关问题
+            2. 解释数学概念
+            3. 帮助解决数学难题
+            4. 提供学习建议
+            请用简洁、易懂的语言回答，支持中英文。"""}
+        ]
+        
+        # 添加历史对话（最多保留最近5轮）
+        for msg in chat_history[-10:]:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+        
+        # 添加当前问题
+        messages.append({"role": "user", "content": user_message})
+        
+        completion = client.chat.completions.create(
+            model="qwen3-omni-flash",
+            messages=messages,
+            stream=False
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"抱歉，AI暂时无法回答。错误：{str(e)}"
+
 # ================= 3. 数据处理逻辑 =================
 
 if 'global_db' not in st.session_state:
@@ -1395,6 +1432,165 @@ elif page == "My Dashboard":
             st.markdown("<hr style='opacity:0.1'>", unsafe_allow_html=True)
     else:
         st.info("No data available. Go to Scan page first.")
+    
+    # ================= AI 问答小组件 (右下角浮动) =================
+    st.markdown("""
+    <style>
+    /* AI 问答小组件容器 */
+    .ai-chat-widget {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* 聊天窗口 */
+    .ai-chat-window {
+        width: 350px;
+        max-height: 450px;
+        background: linear-gradient(135deg, rgba(20, 25, 40, 0.98) 0%, rgba(30, 40, 60, 0.98) 100%);
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(64, 224, 208, 0.2);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        backdrop-filter: blur(20px);
+    }
+    
+    /* 聊天头部 */
+    .ai-chat-header {
+        background: linear-gradient(135deg, #40e0d0 0%, #00d4ff 100%);
+        color: #0a0e27;
+        padding: 12px 16px;
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    /* 聊天消息区域 */
+    .ai-chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+        max-height: 280px;
+        min-height: 200px;
+    }
+    
+    /* 消息气泡 */
+    .chat-msg {
+        margin-bottom: 10px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        max-width: 85%;
+        word-wrap: break-word;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+    
+    .chat-msg.user {
+        background: linear-gradient(135deg, #40e0d0 0%, #00d4ff 100%);
+        color: #0a0e27;
+        margin-left: auto;
+        border-bottom-right-radius: 4px;
+    }
+    
+    .chat-msg.ai {
+        background: rgba(64, 224, 208, 0.15);
+        color: #e0e7ff;
+        border-bottom-left-radius: 4px;
+        border: 1px solid rgba(64, 224, 208, 0.2);
+    }
+    
+    /* 浮动按钮 */
+    .ai-chat-fab {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #40e0d0 0%, #00d4ff 100%);
+        color: #0a0e27;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(64, 224, 208, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        transition: all 0.3s ease;
+    }
+    
+    .ai-chat-fab:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 30px rgba(64, 224, 208, 0.7);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # 小组件状态切换按钮
+    col_spacer, col_widget = st.columns([4, 1])
+    with col_widget:
+        if st.button("💬 AI Assistant" if not st.session_state['ai_chat_open'] else "✕ Close", 
+                     key="ai_chat_toggle",
+                     type="primary" if not st.session_state['ai_chat_open'] else "secondary"):
+            st.session_state['ai_chat_open'] = not st.session_state['ai_chat_open']
+            st.rerun()
+    
+    # 显示聊天窗口
+    if st.session_state['ai_chat_open']:
+        st.markdown("---")
+        st.markdown("### 🤖 AI Math Assistant")
+        st.caption("Ask me anything about math!")
+        
+        # 显示聊天历史
+        chat_container = st.container()
+        with chat_container:
+            for msg in st.session_state['ai_chat_history']:
+                if msg['role'] == 'user':
+                    st.markdown(f"""
+                    <div style="text-align: right; margin-bottom: 10px;">
+                        <span style="background: linear-gradient(135deg, #40e0d0 0%, #00d4ff 100%); 
+                                     color: #0a0e27; padding: 8px 14px; border-radius: 12px; 
+                                     display: inline-block; max-width: 80%;">
+                            {msg['content']}
+                        </span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style="text-align: left; margin-bottom: 10px;">
+                        <span style="background: rgba(64, 224, 208, 0.15); 
+                                     color: #e0e7ff; padding: 8px 14px; border-radius: 12px; 
+                                     display: inline-block; max-width: 80%; border: 1px solid rgba(64, 224, 208, 0.2);">
+                            {msg['content']}
+                        </span>
+                    </div>
+                    """, unsafe_allow_html=True)
+        
+        # 输入区域
+        with st.form(key="ai_chat_form", clear_on_submit=True):
+            user_input = st.text_input("Type your question...", key="ai_chat_input", 
+                                       placeholder="e.g., How do I solve quadratic equations?")
+            col1, col2, col3 = st.columns([2, 1, 1])
+            with col2:
+                send_btn = st.form_submit_button("Send", type="primary", use_container_width=True)
+            with col3:
+                clear_btn = st.form_submit_button("Clear", use_container_width=True)
+            
+            if send_btn and user_input:
+                # 添加用户消息
+                st.session_state['ai_chat_history'].append({"role": "user", "content": user_input})
+                
+                # 获取AI回复
+                with st.spinner("AI is thinking..."):
+                    ai_response = get_ai_chat_response(user_input, st.session_state['ai_chat_history'])
+                    st.session_state['ai_chat_history'].append({"role": "assistant", "content": ai_response})
+                
+                st.rerun()
+            
+            if clear_btn:
+                st.session_state['ai_chat_history'] = []
+                st.rerun()
 
 # --- 页面 C: 全局联网论坛 (修正版) ---
 elif page == "Global Forum":
